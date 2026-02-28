@@ -5,7 +5,15 @@
       "Bash(for module in c1-lead-scraper m2-icp-scoring m3-enrichment m4-cadence-orchestrator m5a-email-sender m5b-dm-dispatcher m5c-whatsapp-sender m6-event-tracker m7-manychat-bridge m8-axiom-orchestrator m9-domain-guard m10-weekly-reporter c3-daily-briefing c4-ad-library-benchmark c5-reels-trends-scanner; do\n  echo \"=== $module ===\";\n  ls /root/outbound-engine/modules/$module/;\n  echo \"\";\ndone)",
       "Bash(ls /root/outbound-engine/ | sort\necho \"---MODULES---\"\nls /root/outbound-engine/modules/ | sort\necho \"---TESTS---\"\nls /root/outbound-engine/tests/ | sort\necho \"---LOGS---\"\nls /root/outbound-engine/logs/ 2>/dev/null || echo \"[empty]\")",
       "Bash(echo \"=== c1-lead-scraper module ===\" && ls -la /root/outbound-engine/modules/c1-lead-scraper/ && echo \"\" && ls /root/outbound-engine/modules/c1-lead-scraper/logs/ 2>/dev/null && echo \"=== m7-manychat-bridge module ===\" && ls -la /root/outbound-engine/modules/m7-manychat-bridge/ && echo \"\" && echo \"=== Checking for c1-lead-scraper spec ===\" && ls /root/outbound-engine/*.md && echo \"=== Checking logs directory ===\" && ls /root/outbound-engine/logs/)",
-      "Bash(cat m3-enrichment.md | claude --allowedTools \"Bash\\(curl*\\)\" \"Bash\\(jq*\\)\")"
+      "Bash(cat m3-enrichment.md | claude --allowedTools \"Bash\\(curl*\\)\" \"Bash\\(jq*\\)\")",
+      "Bash(./engine.sh status:*)",
+      "Bash(./engine.sh:*)",
+      "Bash(chmod:*)",
+      "Bash(bash:*)",
+      "Bash(/opt/homebrew/bin/bash:*)",
+      "Bash(/usr/local/bin/bash:*)",
+      "Bash(brew --prefix:*)",
+      "Bash(/opt/homebrew/opt/bash/bin/bash:*)"
     ]
   }
 }
