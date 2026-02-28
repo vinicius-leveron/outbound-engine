@@ -28,6 +28,7 @@ MODULES=(
   "c1-lead-scraper"
   "m2-icp-scoring"
   "m3-enrichment"
+  "t15-deep-enrichment"
   "m4-cadence-orchestrator"
   "m5a-email-sender"
   "m5b-dm-dispatcher"

@@ -8,6 +8,7 @@
 #   1. Setup (validar APIs + criar leads teste)
 #   2. M2 — ICP Scoring (classifica os leads)
 #   3. M3 — Enrichment (busca email/phone)
+#   3b. T15 — Deep Enrichment (scraping posts + Gemini multimodal)
 #   4. M8 — Axiom (inicia social selling no Sheets)
 #   5. M4 — Cadence (decide próximo step)
 #   6. M5a — Email (envia email de teste pra você)
@@ -75,6 +76,7 @@ echo "Este script vai:"
 echo "  1. Criar 3 leads de teste no CRM (com seu email)"
 echo "  2. Rodar M2 pra classificar (A, B, C)"
 echo "  3. Rodar M3 pra enriquecer via Apollo"
+echo "  3b. Rodar T15 pra deep enrichment (posts + Gemini)"
 echo "  4. Rodar M8 pra iniciar social selling no Sheets"
 echo "  5. Rodar M4 pra decidir cadência"
 echo "  6. Rodar M5a pra enviar email DE TESTE pro seu email"
@@ -128,8 +130,22 @@ run_module "M3" "m3-enrichment.md" "Enrichment via Apollo"
 
 echo ""
 echo "Verifique no CRM:"
-echo "  - Leads A/B devem estar com cadence_status = 'ready'"
+echo "  - Leads A/B devem estar com cadence_status = 'deep_enriching'"
 echo "  - Apollo pode ter encontrado dados (ou não, são leads fake)"
+echo ""
+read -p "Prosseguir pra T15 (deep enrichment)? (s/n) " -n 1 -r
+echo ""
+if [[ ! $REPLY =~ ^[Ss]$ ]]; then exit 0; fi
+
+# ==========================================
+# STEP 2b: T15 — Deep Enrichment
+# ==========================================
+run_module "T15" "modules/t15-deep-enrichment/prompt.md" "Deep Enrichment + Gemini Multimodal"
+
+echo ""
+echo "Verifique no CRM:"
+echo "  - source_detail dos leads A/B deve ter 'recent_posts' e 'gemini_analysis'"
+echo "  - cadence_status = 'ready'"
 echo ""
 read -p "Prosseguir pra M8 (social selling)? (s/n) " -n 1 -r
 echo ""

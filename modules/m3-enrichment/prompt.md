@@ -19,10 +19,10 @@ APOLLO_API_KEY=I2SbTXya07FoSSg5enheoA
 |----------|-----|
 | `GET /v1/contacts?cadence_status=enriching&per_page=30` | Buscar leads pra enriquecer |
 | `PATCH /v1/contacts/:id` | Atualizar email/phone do contato |
-| `PATCH /v1/contacts/:id/cadence` | Avançar pra "ready" |
+| `PATCH /v1/contacts/:id/cadence` | Avançar pra "deep_enriching" |
 | `POST /v1/contacts/:id/activities` | Logar enrichment |
 
-### Fluxo: `enriching` → `ready`
+### Fluxo: `enriching` → `deep_enriching` (T15 faz deep enrichment antes do M4)
 
 ## Instruções
 
@@ -63,16 +63,16 @@ curl -s -X PATCH "${CRM_BASE_URL}/v1/contacts/{contact_org_id}" \
   }'
 ```
 
-### STEP 4: Avançar cadence_status pra "ready"
+### STEP 4: Avançar cadence_status pra "deep_enriching"
 
 ```bash
 curl -s -X PATCH "${CRM_BASE_URL}/v1/contacts/{contact_org_id}/cadence" \
   -H "Authorization: Bearer ${CRM_API_KEY}" \
   -H "Content-Type: application/json" \
-  -d '{"cadence_status": "ready"}'
+  -d '{"cadence_status": "deep_enriching"}'
 ```
 
-**Nota:** Mesmo sem email, avança pra "ready". O M4 decide se o lead entra na cadência baseado nos dados disponíveis.
+**Nota:** Mesmo sem email, avança pra "deep_enriching". O T15 fará deep enrichment (scraping de posts + análise Gemini) antes do lead chegar no M4.
 
 ### STEP 5: Logar atividade
 
@@ -97,7 +97,7 @@ Data/hora: {timestamp}
 Processados: {N}
 Emails encontrados: {n} ({%})
 Telefones: {n} ({%})
-→ cadence_status = "ready": {N}
+→ cadence_status = "deep_enriching": {N}
 Apollo calls: {n}
 ====================================
 ```

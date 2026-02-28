@@ -114,27 +114,72 @@ Filtrar: `do_not_contact` != true
 
 ### STEP 3: Gerar mensagem personalizada com AI
 
-Para cada envio, buscar o template da categoria certa e personalizar com dados do lead:
+Para cada lead, buscar dados completos do CRM:
 
-**Email frio (step 1):**
-- Tom: casual, peer-to-peer (KOSMOS) ou profissional (oliveira-dev)
-- Max 100 palavras
-- Mencionar algo da bio do lead
+```bash
+curl -s -X GET "${CRM_BASE_URL}/v1/contacts/{contact_org_id}" \
+  -H "Authorization: Bearer ${CRM_API_KEY}"
+```
+
+Ler o campo `source_detail` do lead.
+
+---
+
+**SE source_detail contém `recent_posts` E `gemini_analysis` (lead enriquecido pelo T15):**
+
+Usar TODOS os dados disponíveis pra gerar copy genuinamente personalizada:
+
+- `source_detail.recent_posts` → legendas dos posts reais (referência obrigatória a pelo menos 1)
+- `source_detail.gemini_analysis.product_detected` → menção ao produto/nicho do lead
+- `source_detail.gemini_analysis.content_style` → ajustar tom da mensagem
+- `source_detail.gemini_analysis.sophistication_level` → linguagem:
+  * 7-10: técnica, referências de mercado, jargão do nicho
+  * 1-4: didática, mais explicativa, linguagem simples
+  * 5-6: intermediária
+- `source_detail.gemini_analysis.key_observations` → hook da mensagem
+- `source_detail.gemini_analysis.text_in_images` → possível referência a conteúdo visual
+- `source_detail.link_bio_type` → contexto sobre presença digital
+
+Abordagem por classificação:
+- **Classe A** (score >= 60): tom peer-to-peer, reconhecer expertise, CTA visita perfil ou lead magnet
+- **Classe B** (score 30-59): tom consultivo, oferecer valor, CTA call
+
+Regras da Seção 14 (OBRIGATÓRIO):
+- NUNCA: áudio, mensagem copiada, emojis excessivos, "posso te ajudar?"
+- Tom casual, peer-to-peer, como se já acompanhasse o trabalho
+- A DM DEVE conter pelo menos 1 referência específica ao conteúdo real do lead
+- Ajuste por tenant:
+  * KOSMOS: casual, criador pra criador, como colega de mercado
+  * Oliveira-dev: profissional, mas acessível, focado em resultado
+
+---
+
+**SE source_detail NÃO contém `recent_posts` (lead sem enrichment T15 — fallback):**
+
+Gerar com dados disponíveis (bio, followers — comportamento anterior):
+
+---
+
+**Para TODOS os leads (com ou sem enrichment):**
+
+Email frio (step 1):
 - Subject curto e curioso
+- Body max 100 palavras
+- Tom casual (KOSMOS) ou profissional (oliveira-dev)
 - Sem parecer vendedor
 
-**DM (step 2):**
-- Max 50 palavras
-- Como seguidor que admira o trabalho
+DM (step 2):
+- Max 300 caracteres
+- Casual, como seguidor que admira o trabalho
 - Abrir conversa, não vender
 - Sem link
 
-**Follow-ups (steps 3-4):**
+Follow-ups (steps 3-4):
 - Referenciar mensagem anterior
 - Adicionar valor (insight, observação)
 - Max 80 palavras
 
-**Break-up (step 5):**
+Break-up (step 5):
 - Respeitoso, sem pressão
 - "Porta aberta"
 - Max 50 palavras

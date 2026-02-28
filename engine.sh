@@ -44,7 +44,8 @@ declare -A DEPS
 DEPS[c1-lead-scraper]=""
 DEPS[m2-icp-scoring]="c1-lead-scraper"
 DEPS[m3-enrichment]="m2-icp-scoring"
-DEPS[m4-cadence-orchestrator]="m3-enrichment"
+DEPS[t15-deep-enrichment]="m3-enrichment"
+DEPS[m4-cadence-orchestrator]="t15-deep-enrichment"
 DEPS[m5a-email-sender]="m4-cadence-orchestrator"
 DEPS[m5b-dm-dispatcher]="m4-cadence-orchestrator"
 # DEPS[m5c-whatsapp-sender]="m4-cadence-orchestrator"  # DESABILITADO — WhatsApp por último
@@ -59,14 +60,14 @@ DEPS[c5-reels-trends-scanner]=""
 # Fases de execução
 declare -A PHASES
 PHASES[1]="c1-lead-scraper m2-icp-scoring"
-PHASES[2]="m3-enrichment"
+PHASES[2]="m3-enrichment t15-deep-enrichment"
 PHASES[3]="m4-cadence-orchestrator m5a-email-sender m5b-dm-dispatcher m6-event-tracker"
 PHASES[4]="m8-axiom-orchestrator m9-domain-guard"  # m5c-whatsapp desabilitado
 PHASES[5]="m10-weekly-reporter c3-daily-briefing"
 PHASES[ind]="c4-ad-library-benchmark c5-reels-trends-scanner"
 
 # Lista completa de módulos
-ALL_MODULES="c1-lead-scraper m2-icp-scoring m3-enrichment m4-cadence-orchestrator m5a-email-sender m5b-dm-dispatcher m6-event-tracker m8-axiom-orchestrator m9-domain-guard m10-weekly-reporter c3-daily-briefing c4-ad-library-benchmark c5-reels-trends-scanner"
+ALL_MODULES="c1-lead-scraper m2-icp-scoring m3-enrichment t15-deep-enrichment m4-cadence-orchestrator m5a-email-sender m5b-dm-dispatcher m6-event-tracker m8-axiom-orchestrator m9-domain-guard m10-weekly-reporter c3-daily-briefing c4-ad-library-benchmark c5-reels-trends-scanner"
 
 # ============================================================
 # FUNÇÕES CORE
@@ -220,7 +221,7 @@ cmd_run_chain() {
         echo ""
         echo "Fases disponíveis:"
         echo "  1  → Fundação: C1 (Lead Scraper) + M2 (ICP Scoring)"
-        echo "  2  → Enrichment: M3"
+        echo "  2  → Enrichment: M3 + T15 (deep enrichment)"
         echo "  3  → Core Outbound: M4 + M5a + M5b + M6"
         echo "  4  → Complementar: M5c + M8 + M9"
         echo "  5  → Relatórios: M10 + C3"
@@ -289,7 +290,7 @@ with open(status_file) as f:
 
 modules_order = [
     ("FASE 1 — Fundação", ["c1-lead-scraper", "m2-icp-scoring"]),
-    ("FASE 2 — Enrichment", ["m3-enrichment"]),
+    ("FASE 2 — Enrichment", ["m3-enrichment", "t15-deep-enrichment"]),
     ("FASE 3 — Core Outbound", ["m4-cadence-orchestrator", "m5a-email-sender", "m5b-dm-dispatcher", "m6-event-tracker"]),
     ("FASE 4 — Complementar", ["m8-axiom-orchestrator", "m9-domain-guard"]),
     ("FASE 5 — Relatórios", ["m10-weekly-reporter", "c3-daily-briefing"]),
@@ -410,6 +411,7 @@ cmd_list() {
     echo ""
     echo "  FASE 2 (Enrichment):"
     echo "    m3-enrichment            Busca email/tel via Hunter/Apollo"
+    echo "    t15-deep-enrichment      Scraping 3 posts + analise Gemini multimodal"
     echo ""
     echo "  FASE 3 (Core Outbound):"
     echo "    m4-cadence-orchestrator   Decide próximo step da cadência"
@@ -507,6 +509,20 @@ cmd_health() {
         echo -e "${YELLOW}⚠️  Não configurado${NC}"
     fi
 
+    # Gemini
+    echo -n "  Gemini API:      "
+    if [ -n "$GEMINI_API_KEY" ] && [ "$GEMINI_API_KEY" != "<SUBSTITUIR>" ]; then
+        local gemini_status=$(curl -s -o /dev/null -w "%{http_code}" \
+          "https://generativelanguage.googleapis.com/v1beta/models?key=${GEMINI_API_KEY}" 2>/dev/null)
+        if [ "$gemini_status" = "200" ]; then
+            echo -e "${GREEN}✅ OK${NC}"
+        else
+            echo -e "${RED}❌ ERRO (HTTP $gemini_status)${NC}"
+        fi
+    else
+        echo -e "${YELLOW}⚠️  Não configurado${NC}"
+    fi
+
     # Google Sheets
     echo -n "  Google Sheets:   "
     if [ -n "$GOOGLE_SHEETS_ID" ] && [ "$GOOGLE_SHEETS_ID" != "<SUBSTITUIR>" ]; then
@@ -534,6 +550,7 @@ cmd_cron_install() {
 
 # FASE 2
 0 7 * * * ~/outbound-engine/engine.sh run m3-enrichment >> ~/outbound-engine/logs/cron.log 2>&1
+30 7 * * * ~/outbound-engine/engine.sh run t15-deep-enrichment >> ~/outbound-engine/logs/cron.log 2>&1
 
 # FASE 3
 0 9,12,15,18 * * * ~/outbound-engine/engine.sh run m4-cadence-orchestrator >> ~/outbound-engine/logs/cron.log 2>&1
