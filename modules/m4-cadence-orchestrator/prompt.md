@@ -89,7 +89,16 @@ curl -s -X GET "${CRM_BASE_URL}/v1/contacts?cadence_status=ready&classificacao=B
 # Leads já em sequência
 curl -s -X GET "${CRM_BASE_URL}/v1/contacts?cadence_status=in_sequence&per_page=50" \
   -H "Authorization: Bearer ${CRM_API_KEY}"
+
+# Leads queued (possíveis órfãos - queued mas não estão na fila do Sheets)
+curl -s -X GET "${CRM_BASE_URL}/v1/contacts?cadence_status=queued&per_page=50" \
+  -H "Authorization: Bearer ${CRM_API_KEY}"
 ```
+
+**Tratamento de leads queued (órfãos):**
+- Buscar Email_Queue e DM_Queue atual
+- Se lead está `queued` no CRM mas NÃO existe na fila com status="pending" → recriar entrada na fila
+- Isso recupera leads que ficaram presos por falha de rede/timeout
 
 Filtrar: `do_not_contact` != true
 
@@ -139,20 +148,25 @@ Para cada envio, buscar o template da categoria certa e personalizar com dados d
 - "Porta aberta"
 - Max 50 palavras
 
-### STEP 4: Atualizar cadência e enfileirar
+### STEP 4: Enfileirar e atualizar cadência
+
+**ORDEM CRÍTICA:** Primeiro escreve no Sheets, depois atualiza CRM. Se Sheets falhar, lead fica "ready" e será retentado.
 
 Para cada lead com envio decidido:
 
+**4.1 — Verificar duplicata (OBRIGATÓRIO):**
+
 ```bash
-# Atualizar cadência
-curl -s -X PATCH "${CRM_BASE_URL}/v1/contacts/{contact_org_id}/cadence" \
-  -H "Authorization: Bearer ${CRM_API_KEY}" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "cadence_status": "queued",
-    "cadence_step": <novo_step>
-  }'
+# Buscar fila atual pra checar se lead já está pendente
+QUEUE_DATA=$(curl -s "${SHEETS_BASE}/Email_Queue!A:I?key=${GOOGLE_SHEETS_API_KEY}")
+
+# Verificar se contact_org_id já existe com status=pending (coluna F = contact_org_id, coluna D = status)
+# Se encontrar → SKIP este lead (já está na fila)
 ```
+
+Se lead já está na fila com `status=pending` → **NÃO adicionar novamente**, pular pro próximo lead.
+
+**4.2 — Escrever na fila (Sheets PRIMEIRO):**
 
 ```bash
 # Se canal = email → escrever na aba Email_Queue do Sheets
@@ -168,6 +182,19 @@ curl -s -X POST "${SHEETS_BASE}/DM_Queue!A:H:append?valueInputOption=RAW" \
   -H "Authorization: Bearer ${SHEETS_TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{"values": [["<username>", "<message>", "pending", "<step>", "<contact_org_id>", "<tenant>", "<timestamp>", ""]]}'
+```
+
+**4.3 — Atualizar CRM (só se Sheets sucesso):**
+
+```bash
+# Só executar se o append no Sheets retornou sucesso (HTTP 200)
+curl -s -X PATCH "${CRM_BASE_URL}/v1/contacts/{contact_org_id}/cadence" \
+  -H "Authorization: Bearer ${CRM_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "cadence_status": "queued",
+    "cadence_step": <novo_step>
+  }'
 ```
 
 **IMPORTANTE:** O CRM não suporta custom_fields. A fila de envio é pelo Google Sheets:
