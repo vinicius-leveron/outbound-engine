@@ -44,7 +44,8 @@ declare -A DEPS
 DEPS[c1-lead-scraper]=""
 DEPS[m2-icp-scoring]="c1-lead-scraper"
 DEPS[m3-enrichment]="m2-icp-scoring"
-DEPS[m4-cadence-orchestrator]="m3-enrichment"
+DEPS[t15-deep-enrichment]="m3-enrichment"
+DEPS[m4-cadence-orchestrator]="t15-deep-enrichment"
 DEPS[m5a-email-sender]="m4-cadence-orchestrator"
 DEPS[m5b-dm-dispatcher]="m4-cadence-orchestrator"
 # DEPS[m5c-whatsapp-sender]="m4-cadence-orchestrator"  # DESABILITADO — WhatsApp por último
@@ -59,14 +60,14 @@ DEPS[c5-reels-trends-scanner]=""
 # Fases de execução
 declare -A PHASES
 PHASES[1]="c1-lead-scraper m2-icp-scoring"
-PHASES[2]="m3-enrichment"
+PHASES[2]="m3-enrichment t15-deep-enrichment"
 PHASES[3]="m4-cadence-orchestrator m5a-email-sender m5b-dm-dispatcher m6-event-tracker"
 PHASES[4]="m8-axiom-orchestrator m9-domain-guard"  # m5c-whatsapp desabilitado
 PHASES[5]="m10-weekly-reporter c3-daily-briefing"
 PHASES[ind]="c4-ad-library-benchmark c5-reels-trends-scanner"
 
 # Lista completa de módulos
-ALL_MODULES="c1-lead-scraper m2-icp-scoring m3-enrichment m4-cadence-orchestrator m5a-email-sender m5b-dm-dispatcher m6-event-tracker m8-axiom-orchestrator m9-domain-guard m10-weekly-reporter c3-daily-briefing c4-ad-library-benchmark c5-reels-trends-scanner"
+ALL_MODULES="c1-lead-scraper m2-icp-scoring m3-enrichment t15-deep-enrichment m4-cadence-orchestrator m5a-email-sender m5b-dm-dispatcher m6-event-tracker m8-axiom-orchestrator m9-domain-guard m10-weekly-reporter c3-daily-briefing c4-ad-library-benchmark c5-reels-trends-scanner"
 
 # ============================================================
 # FUNÇÕES CORE

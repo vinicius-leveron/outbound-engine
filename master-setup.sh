@@ -28,6 +28,7 @@ MODULES=(
   "c1-lead-scraper"
   "m2-icp-scoring"
   "m3-enrichment"
+  "t15-deep-enrichment"
   "m4-cadence-orchestrator"
   "m5a-email-sender"
   "m5b-dm-dispatcher"
@@ -70,6 +71,10 @@ APIFY_TOKEN=${APIFY_API_TOKEN}
 RESEND_API_KEY=${RESEND_API_KEY}
 
 # --- Enrichment ---
+# Snov.io (alternativa ao Apollo - mais barato)
+SNOV_CLIENT_ID=
+SNOV_CLIENT_SECRET=
+# Apollo (backup/legado)
 APOLLO_API_KEY=I2SbTXya07FoSSg5enheoA
 
 # --- ManyChat ---

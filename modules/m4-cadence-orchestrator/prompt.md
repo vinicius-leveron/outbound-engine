@@ -123,7 +123,49 @@ Filtrar: `do_not_contact` != true
 
 ### STEP 3: Gerar mensagem personalizada com AI
 
-Para cada envio, buscar o template da categoria certa e personalizar com dados do lead:
+Para cada lead, buscar dados completos incluindo source_detail:
+```bash
+curl -s -X GET "${CRM_BASE_URL}/v1/contacts/${CONTACT_ID}" \
+  -H "Authorization: Bearer ${CRM_API_KEY}"
+```
+
+Extrair de `source_detail`:
+- `bio` (bio do Instagram)
+- `recent_posts` (array com 3 posts recentes - se existir)
+- `claude_analysis` (analise do T15 - se existir)
+
+---
+
+**SE lead tem `recent_posts` e `claude_analysis` (enriquecido pelo T15):**
+
+Usar TODOS os dados pra gerar copy genuinamente personalizada:
+
+- **Legendas dos posts** → referencia real ao conteudo do lead
+- **claude_analysis.product_detected** → mencionar produto/nicho especifico
+- **claude_analysis.content_style** → ajustar abordagem (educational = dicas, sales = direto)
+- **claude_analysis.sophistication_level** → ajustar linguagem:
+  - 7-10: tom tecnico, peer-to-peer, reconhecer expertise
+  - 4-6: tom consultivo, oferecer valor
+  - 1-3: tom didatico, explicar beneficios
+- **claude_analysis.key_observations** → usar como hook da mensagem
+
+Abordagem por classificacao:
+- **Classe A (score >= 60):** tom peer-to-peer, reconhecer expertise, CTA leve
+- **Classe B (score 30-59):** tom consultivo, oferecer valor, CTA call
+
+**REGRAS OBRIGATORIAS:**
+- NUNCA: audio, mensagem copiada, emojis excessivos, "posso te ajudar?"
+- Tom casual, peer-to-peer, como se ja acompanhasse o trabalho
+- **Referencia obrigatoria a pelo menos 1 conteudo REAL do lead** (post, produto, visual)
+- Ajustar por tenant:
+  * KOSMOS: casual, criador pra criador
+  * Oliveira-dev: profissional, mas acessivel
+
+---
+
+**SE lead NAO tem `recent_posts` (fallback - sem enrichment T15):**
+
+Gerar com dados disponiveis (bio, followers — comportamento anterior):
 
 **Email frio (step 1):**
 - Tom: casual, peer-to-peer (KOSMOS) ou profissional (oliveira-dev)
@@ -135,18 +177,30 @@ Para cada envio, buscar o template da categoria certa e personalizar com dados d
 **DM (step 2):**
 - Max 50 palavras
 - Como seguidor que admira o trabalho
-- Abrir conversa, não vender
+- Abrir conversa, nao vender
 - Sem link
 
 **Follow-ups (steps 3-4):**
 - Referenciar mensagem anterior
-- Adicionar valor (insight, observação)
+- Adicionar valor (insight, observacao)
 - Max 80 palavras
 
 **Break-up (step 5):**
-- Respeitoso, sem pressão
+- Respeitoso, sem pressao
 - "Porta aberta"
 - Max 50 palavras
+
+---
+
+**TEMPLATES POR STEP (para todos os leads):**
+
+| Step | Canal | Max palavras | Foco |
+|------|-------|--------------|------|
+| 1 | Email | 100 | Abertura + referencia ao trabalho |
+| 2 | DM | 50 (300 chars) | Casual, sem link, abrir conversa |
+| 3 | Email | 80 | Follow-up com valor adicional |
+| 4 | DM | 50 | Follow-up leve |
+| 5 | Email | 50 | Break-up respeitoso |
 
 ### STEP 4: Enfileirar e atualizar cadência
 
