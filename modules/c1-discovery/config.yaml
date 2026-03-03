@@ -1,0 +1,57 @@
+# C1-Discovery Configuration
+# Configuracao de busca de escritorios de advocacia via Google Maps
+
+search:
+  # Query de busca no Google Maps
+  query: "escritorio de advocacia"
+
+  # Localizacao da busca
+  location: "Florianopolis, SC, Brazil"
+
+  # Maximo de resultados por execucao
+  max_results: 100
+
+  # Idioma dos resultados
+  language: "pt-BR"
+
+filters:
+  # Keywords que devem estar no nome ou categoria
+  must_match_keywords:
+    - "advocacia"
+    - "advogado"
+    - "advogados"
+    - "juridico"
+    - "law"
+    - "lawyer"
+
+  # Rating minimo (0-5)
+  min_rating: 0
+
+  # Minimo de avaliacoes (sinal de legitimidade)
+  min_reviews: 0
+
+  # Requer website (essencial para enrichment)
+  require_website: true
+
+  # Requer telefone
+  require_phone: false
+
+output:
+  # Tenant no CRM
+  tenant: "advocacia-tech"
+
+  # Cadence status inicial
+  initial_status: "discovered"
+
+  # Diretorio de logs
+  logs_dir: "logs"
+
+# Localizacoes futuras (para expansao)
+# Descomente quando quiser expandir
+future_locations:
+  # - "Sao Paulo, SP, Brazil"
+  # - "Rio de Janeiro, RJ, Brazil"
+  # - "Curitiba, PR, Brazil"
+  # - "Porto Alegre, RS, Brazil"
+  # - "Joinville, SC, Brazil"
+  # - "Blumenau, SC, Brazil"

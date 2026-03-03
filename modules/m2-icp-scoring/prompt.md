@@ -78,6 +78,38 @@ ICP: construtoras, escritórios de advocacia, empresas B2B.
 | Link externo | +10 | external_url preenchido |
 | Bio keywords dor | +10 | "gestão", "processos", "automação", "sistema", "ERP", "CRM", "digital" |
 
+#### TENANT: advocacia-tech
+ICP: Escritórios de advocacia para projetos de tecnologia (sistemas, automação, portais).
+
+**IMPORTANTE:** Este tenant vem do pipeline C1 (Google Maps → Web Enrich → Decision Maker).
+Os dados estão em `source_detail` com estrutura diferente dos outros tenants.
+
+**Buscar leads:** `cadence_status=dm_identified&tenant=advocacia-tech`
+
+| Critério | Pontos | Condição |
+|----------|--------|----------|
+| Áreas tech-friendly | +25 | `practice_areas` contém: "Empresarial", "Digital", "Tech", "Startups", "M&A", "Societário", "Propriedade Intelectual" |
+| Maturidade digital alta | +20 | `website_analysis.digital_maturity_score` >= 6 |
+| Maturidade digital média | +10 | `website_analysis.digital_maturity_score` >= 4 |
+| Decisor identificado com email | +20 | `decision_maker.email` preenchido E `decision_maker.email_status` = "valid" ou "unverified" |
+| Decisor identificado sem email | +10 | `decision_maker.name` preenchido mas sem email |
+| Tem Instagram ativo | +15 | `instagram.handle` preenchido |
+| Escritório médio (5-20 advogados) | +10 | `team_count` entre 5 e 20 |
+
+**Dados extras para análise qualitativa:**
+- `source_detail.google_maps.rating` (reputação)
+- `source_detail.google_maps.reviews_count` (volume de clientes)
+- `source_detail.practice_areas[]` (especialidades)
+- `source_detail.decision_maker.title` (cargo do decisor)
+- `source_detail.website_analysis.has_blog` (produção de conteúdo)
+
+**Análise AI para A/B:**
+Incluir na análise:
+1. Áreas de atuação e fit com projetos de tech
+2. Maturidade digital atual (oportunidade ou já avançado?)
+3. Perfil do decisor e sugestão de abordagem
+4. Dores prováveis baseado no perfil do escritório
+
 ### STEP 3: Classificação
 
 | Classificação | Score | Destino |
@@ -137,13 +169,14 @@ Data/hora: {timestamp}
 Total processados: {N}
   KOSMOS: {N} (A:{n} B:{n} C:{n})
   Oliveira-dev: {N} (A:{n} B:{n} C:{n})
+  Advocacia-tech: {N} (A:{n} B:{n} C:{n})
 
 A: {n} → enriching
 B: {n} → enriching
 C: {n} → archived
 
 Top 3 leads A:
-1. @{instagram} — Score: {score}
+1. @{instagram} ou {organization_name} — Score: {score}
 ====================================
 ```
 
