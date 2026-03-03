@@ -221,9 +221,9 @@ cmd_run_chain() {
         echo ""
         echo "Fases disponíveis:"
         echo "  1  → Fundação: C1 (Lead Scraper) + M2 (ICP Scoring)"
-        echo "  2  → Enrichment: M3"
+        echo "  2  → Enrichment: M3 (Snov.io) + T15 (Deep Enrichment)"
         echo "  3  → Core Outbound: M4 + M5a + M5b + M6"
-        echo "  4  → Complementar: M5c + M8 + M9"
+        echo "  4  → Complementar: M8 + M9"
         echo "  5  → Relatórios: M10 + C3"
         echo "  ind → Independentes: C4 + C5"
         echo "  all → Todas as fases em ordem"
@@ -290,7 +290,7 @@ with open(status_file) as f:
 
 modules_order = [
     ("FASE 1 — Fundação", ["c1-lead-scraper", "m2-icp-scoring"]),
-    ("FASE 2 — Enrichment", ["m3-enrichment"]),
+    ("FASE 2 — Enrichment", ["m3-enrichment", "t15-deep-enrichment"]),
     ("FASE 3 — Core Outbound", ["m4-cadence-orchestrator", "m5a-email-sender", "m5b-dm-dispatcher", "m6-event-tracker"]),
     ("FASE 4 — Complementar", ["m8-axiom-orchestrator", "m9-domain-guard"]),
     ("FASE 5 — Relatórios", ["m10-weekly-reporter", "c3-daily-briefing"]),
@@ -410,7 +410,8 @@ cmd_list() {
     echo "    m2-icp-scoring           Score e classifica leads A/B/C"
     echo ""
     echo "  FASE 2 (Enrichment):"
-    echo "    m3-enrichment            Busca email/tel via Hunter/Apollo"
+    echo "    m3-enrichment            Busca email via Snov.io"
+    echo "    t15-deep-enrichment      Analise multimodal posts (Apify+Claude)"
     echo ""
     echo "  FASE 3 (Core Outbound):"
     echo "    m4-cadence-orchestrator   Decide próximo step da cadência"
@@ -495,7 +496,23 @@ cmd_health() {
         echo -e "${YELLOW}⚠️  Não configurado${NC}"
     fi
 
-    # Hunter
+    # Snov.io
+    echo -n "  Snov.io:         "
+    if [ -n "$SNOV_CLIENT_ID" ] && [ -n "$SNOV_CLIENT_SECRET" ]; then
+        local snov_response=$(curl -s -X POST "https://api.snov.io/v1/oauth/access_token" \
+          -H "Content-Type: application/json" \
+          -d '{"grant_type": "client_credentials", "client_id": "'${SNOV_CLIENT_ID}'", "client_secret": "'${SNOV_CLIENT_SECRET}'"}' 2>/dev/null)
+        local snov_token=$(echo "$snov_response" | jq -r '.access_token // empty' 2>/dev/null)
+        if [ -n "$snov_token" ]; then
+            echo -e "${GREEN}✅ OK${NC}"
+        else
+            echo -e "${RED}❌ ERRO (token inválido)${NC}"
+        fi
+    else
+        echo -e "${YELLOW}⚠️  Não configurado${NC}"
+    fi
+
+    # Hunter (legado)
     echo -n "  Hunter.io:       "
     if [ -n "$HUNTER_API_KEY" ] && [ "$HUNTER_API_KEY" != "<SUBSTITUIR>" ]; then
         local hunter_status=$(curl -s -o /dev/null -w "%{http_code}" "https://api.hunter.io/v2/account?api_key=${HUNTER_API_KEY}" 2>/dev/null)
@@ -505,7 +522,7 @@ cmd_health() {
             echo -e "${RED}❌ ERRO (HTTP $hunter_status)${NC}"
         fi
     else
-        echo -e "${YELLOW}⚠️  Não configurado${NC}"
+        echo -e "${YELLOW}⚠️  Não configurado (legado)${NC}"
     fi
 
     # Google Sheets

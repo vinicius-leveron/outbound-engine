@@ -1,0 +1,97 @@
+# ===========================================
+# C1 LEAD SCRAPER — CONFIGURACAO
+# ===========================================
+# Edite este arquivo para ajustar fontes e filtros
+# Este e o UNICO arquivo que voce precisa editar!
+
+version: "1.0"
+
+# -------------------------------------------
+# FONTES DE COLETA
+# -------------------------------------------
+sources:
+
+  # Meta Ad Library - quem roda ads de curso/mentoria
+  ad_library:
+    enabled: true
+    keywords:
+      - "curso online"
+      - "mentoria"
+      - "metodo"
+      - "turma aberta"
+      - "vagas abertas"
+      - "inscricoes abertas"
+      - "formacao"
+      - "masterclass"
+      - "imersao"
+    country: "BR"
+    min_active_days: 7
+    max_results: 1000
+
+  # Following dos grandes - pares e parceiros
+  following:
+    enabled: true
+    seed_profiles:
+      # PREENCHA COM OS @ DOS GRANDES DO MERCADO
+      # Exemplo:
+      # - "ericosrocha"
+      # - "leandroladeira"
+      # - "pedrosobral"
+      # - "icarodecarvalho"
+      # - "thiagofinch"
+      []
+    max_per_profile: 2000
+
+  # Speakers de eventos - CSV manual
+  speakers:
+    enabled: false
+    file: "data/raw/speakers.csv"
+
+# -------------------------------------------
+# FILTROS DE QUALIFICACAO
+# -------------------------------------------
+filters:
+
+  followers:
+    min: 5000
+    max: 300000
+
+  bio_must_contain_any:
+    - "alunos"
+    - "turma"
+    - "metodo"
+    - "mentor"
+    - "curso"
+    - "comunidade"
+    - "vagas"
+    - "inscricoes"
+    - "formacao"
+    - "especialista"
+    - "ajudo"
+    - "ensino"
+    - "transformo"
+    - "aulas"
+    - "treinamento"
+    - "consultoria"
+    - "certificado"
+
+  bio_must_not_contain:
+    - "parody"
+    - "fan page"
+    - "memes"
+    - "humor"
+    - "fa clube"
+    - "fake"
+    - "tribute"
+
+  must_have_external_url: true
+  max_days_since_last_post: 60
+  min_posts: 10
+
+# -------------------------------------------
+# OUTPUT
+# -------------------------------------------
+output:
+  crm_status: "new"
+  batch_size: 100
+  dedupe_window_days: 30
