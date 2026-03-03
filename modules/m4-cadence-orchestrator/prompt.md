@@ -49,6 +49,23 @@ Step 4: DM follow-up (dia 8)
 Step 5: Email break-up (dia 14)
 ```
 
+### ADVOCACIA-TECH (Escritórios de Advocacia)
+```
+Step 1: Email frio para decisor (dia 0)
+Step 2: DM Instagram do escritório (dia 3)
+Step 3: Email follow-up (dia 7)
+Step 4: DM follow-up (dia 10)
+Step 5: Email break-up (dia 16)
+```
+
+**Dados extras para personalização (advocacia-tech):**
+- `source_detail.decision_maker.name` → nome do decisor
+- `source_detail.decision_maker.title` → cargo
+- `source_detail.practice_areas[]` → áreas de atuação
+- `source_detail.website_analysis.digital_maturity_score` → maturidade digital
+- `source_detail.google_maps.rating` → reputação
+- `source_detail.instagram.handle` → IG do escritório
+
 **Nota sobre Axiom:** Se `axiom_status` = "nurture" (lead foi aquecido pelo M8), o lead PULA step 1 e começa direto na DM (step 2). O aquecimento social já criou contexto.
 
 ## Fluxo de entrada
@@ -136,6 +153,28 @@ Extrair de `source_detail`:
 
 ---
 
+## Templates de Copy
+
+**IMPORTANTE:** Use os templates de geração em `./templates/` para gerar copy personalizada.
+
+| Step | Canal | Template | Max |
+|------|-------|----------|-----|
+| 1 | Email | `templates/email-cold.md` | 100 palavras |
+| 2 | DM | `templates/dm-opener.md` | 50 palavras (300 chars) |
+| 3 | Email | `templates/email-followup.md` | 80 palavras |
+| 4 | DM | `templates/dm-followup.md` | 50 palavras |
+| 5 | Email | `templates/email-breakup.md` | 50 palavras |
+
+Cada template contém:
+- Prompt de geração estruturado
+- Exemplos por tenant (KOSMOS vs Oliveira-dev)
+- Anti-patterns a evitar
+- Ajustes por sophistication_level e classificação
+
+---
+
+### Dados do Lead para Personalização
+
 **SE lead tem `recent_posts` e `claude_analysis` (enriquecido pelo T15):**
 
 Usar TODOS os dados pra gerar copy genuinamente personalizada:
@@ -149,11 +188,19 @@ Usar TODOS os dados pra gerar copy genuinamente personalizada:
   - 1-3: tom didatico, explicar beneficios
 - **claude_analysis.key_observations** → usar como hook da mensagem
 
-Abordagem por classificacao:
-- **Classe A (score >= 60):** tom peer-to-peer, reconhecer expertise, CTA leve
-- **Classe B (score 30-59):** tom consultivo, oferecer valor, CTA call
+**SE lead NAO tem `recent_posts` (fallback):**
+- Usar dados da bio + followers
+- Seguir mesmo template, mas com menos personalização
 
-**REGRAS OBRIGATORIAS:**
+### Abordagem por Classificação
+
+| Classe | Score | Tom | CTA |
+|--------|-------|-----|-----|
+| A | >= 60 | Peer-to-peer, reconhecer expertise | CTA leve |
+| B | 30-59 | Consultivo, oferecer valor | CTA call |
+
+### Regras Obrigatórias de Copy
+
 - NUNCA: audio, mensagem copiada, emojis excessivos, "posso te ajudar?"
 - Tom casual, peer-to-peer, como se ja acompanhasse o trabalho
 - **Referencia obrigatoria a pelo menos 1 conteudo REAL do lead** (post, produto, visual)
@@ -163,44 +210,88 @@ Abordagem por classificacao:
 
 ---
 
-**SE lead NAO tem `recent_posts` (fallback - sem enrichment T15):**
+### TEMPLATES ADVOCACIA-TECH (Escritórios de Advocacia)
 
-Gerar com dados disponiveis (bio, followers — comportamento anterior):
+**Tom geral:** Profissional mas acessível. Mostrar conhecimento do setor jurídico. Focar em dores reais: gestão de processos, tempo com burocracia, atendimento ao cliente.
 
-**Email frio (step 1):**
-- Tom: casual, peer-to-peer (KOSMOS) ou profissional (oliveira-dev)
-- Max 100 palavras
-- Mencionar algo da bio do lead
-- Subject curto e curioso
-- Sem parecer vendedor
+**STEP 1 — Email frio para decisor:**
 
-**DM (step 2):**
-- Max 50 palavras
-- Como seguidor que admira o trabalho
-- Abrir conversa, nao vender
-- Sem link
+```
+Assunto: [Área de atuação] + tecnologia — uma combinação que funciona
 
-**Follow-ups (steps 3-4):**
-- Referenciar mensagem anterior
-- Adicionar valor (insight, observacao)
-- Max 80 palavras
+[Nome do decisor],
 
-**Break-up (step 5):**
-- Respeitoso, sem pressao
-- "Porta aberta"
-- Max 50 palavras
+Vi que o [Nome do escritório] atua com [área de prática]. Tenho trabalhado com escritórios de perfil parecido em projetos de [automação/portal do cliente/gestão].
 
----
+A maioria dos sócios que converso menciona o tempo gasto em tarefas operacionais — controle de prazos, atualização de clientes, emissão de documentos.
 
-**TEMPLATES POR STEP (para todos os leads):**
+Seria interessante trocar uma ideia sobre como outros escritórios estão usando tech pra liberar tempo dos advogados?
 
-| Step | Canal | Max palavras | Foco |
-|------|-------|--------------|------|
-| 1 | Email | 100 | Abertura + referencia ao trabalho |
-| 2 | DM | 50 (300 chars) | Casual, sem link, abrir conversa |
-| 3 | Email | 80 | Follow-up com valor adicional |
-| 4 | DM | 50 | Follow-up leve |
-| 5 | Email | 50 | Break-up respeitoso |
+Vinícius Oliveira
+```
+
+**Variações por área de prática:**
+
+| Área | Gancho |
+|------|--------|
+| Empresarial/M&A | "due diligence automatizada", "gestão de documentos" |
+| Tributário | "controle de prazos fiscais", "dashboard de processos" |
+| Trabalhista | "volume de reclamações", "automação de cálculos" |
+| Digital/Tech | "natural fit com inovação", "clientes esperam tech" |
+| Civil | "gestão de contratos", "portal do cliente" |
+
+**STEP 2 — DM Instagram do escritório:**
+
+```
+Oi! Vi o trabalho do escritório com [área]. Tenho ajudado escritórios similares a otimizar a gestão com tech. Vocês usam algum sistema específico hoje?
+```
+
+**Variações:**
+- "Vi que atuam forte em [área]. Como está a gestão de processos aí?"
+- "Acompanho o trabalho de vocês. Já pensaram em um portal pro cliente acompanhar os casos?"
+
+**STEP 3 — Email follow-up:**
+
+```
+Assunto: Re: [assunto anterior]
+
+[Nome],
+
+Voltando ao contato anterior — recentemente ajudei o [tipo de escritório similar] a reduzir 40% do tempo gasto em atualização de clientes com um portal simples.
+
+Se fizer sentido pro [Nome do escritório], posso mostrar como funcionaria na prática.
+
+Vinícius
+```
+
+**STEP 4 — DM follow-up:**
+
+```
+[Nome], enviei um email sobre automação pra escritórios. Chegou a ver? Se quiser, podemos marcar 15min pra eu mostrar cases similares.
+```
+
+**STEP 5 — Email break-up:**
+
+```
+Assunto: Última tentativa
+
+[Nome],
+
+Entendo que agenda de sócio é corrida. Não quero ser insistente.
+
+Se em algum momento fizer sentido otimizar a operação do escritório com tecnologia, estou por aqui.
+
+Sucesso,
+Vinícius
+```
+
+**REGRAS ESPECÍFICAS ADVOCACIA-TECH:**
+- SEMPRE usar nome do decisor (não "Prezados" genérico)
+- SEMPRE mencionar área de atuação específica
+- TOM: profissional, mas humano — evitar "venho por meio desta"
+- Focar em DOR: tempo, burocracia, atendimento ao cliente
+- NÃO mencionar preço no primeiro contato
+- Subject curto e direto (evitar "Proposta Comercial")
 
 ### STEP 4: Enfileirar e atualizar cadência
 

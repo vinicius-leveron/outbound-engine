@@ -66,15 +66,22 @@ GOOGLE_SHEETS_API_KEY=AIzaSyDDTGKRUuibxHFXPHl1ja7eRdPaUI6qGhc
 ### STEP 1: Buscar leads elegíveis
 
 ```bash
+# KOSMOS (criadores)
 curl -s -X GET "${CRM_BASE_URL}/v1/contacts?cadence_status=ready&tenant=kosmos&per_page=50" \
+  -H "Authorization: Bearer ${CRM_API_KEY}"
+
+# ADVOCACIA-TECH (escritórios)
+curl -s -X GET "${CRM_BASE_URL}/v1/contacts?cadence_status=enriching&tenant=advocacia-tech&per_page=50" \
   -H "Authorization: Bearer ${CRM_API_KEY}"
 ```
 
 Filtrar novos pra cadência:
 - `axiom_status` = "idle"
-- Lead tem `instagram`
+- Lead tem `instagram` (para KOSMOS) ou `source_detail.instagram.handle` (para ADVOCACIA-TECH)
 - `do_not_contact` = false
 - `classificacao` = "A" ou "B"
+
+**NOTA ADVOCACIA-TECH:** O Instagram é do escritório, não de pessoa. Usar `source_detail.instagram.handle`.
 
 ### STEP 2: Ler aba Controle
 
@@ -175,7 +182,62 @@ Salve em `/tmp/m8_report_{YYYY-MM-DD}.log`
 - 3+ falhas consecutivas → `axiom_status` = "blocked"
 
 ## Comentários — Regras
-- 2-5 palavras + 1 emoji
-- Usar story_topic como contexto
-- NUNCA vendas/CTA
-- Variar: "Muito bom 🔥", "Top 👏", "Faz sentido", "Conteúdo incrível!"
+
+**Template completo:** Ver `../m4-cadence-orchestrator/templates/comment-warmup.md`
+
+| Regra | KOSMOS | ADVOCACIA-TECH |
+|-------|--------|----------------|
+| Tamanho | 2-5 palavras + 1 emoji | 3-8 palavras + max 1 emoji |
+| Tom | Casual, seguidor | Profissional |
+| Contexto | post_topic/story_topic | Conteúdo jurídico |
+| Proibido | Vendas, CTA, links | Posts genéricos |
+
+### KOSMOS (Criadores)
+
+**Exemplos por tipo de post:**
+
+| Tipo de Post | Comentários |
+|--------------|-------------|
+| Produtividade | "Faz total sentido 🔥", "Precisava ler isso hoje 💯" |
+| Resultado aluno | "Parabéns pra ela! 🎉", "Resultado fala por si 👏" |
+| Educacional | "Salvei aqui 📌", "Muito bem explicado" |
+| Motivacional | "Real demais 👏", "Necessário 🙏" |
+
+### ADVOCACIA-TECH (Escritórios)
+
+**Comentar apenas em:**
+- Artigos jurídicos / atualizações legais
+- Conquistas do escritório (prêmios, rankings)
+- Eventos / palestras
+
+**EVITAR:** Posts genéricos ("feliz natal" etc.)
+
+**Exemplos:**
+- "Excelente análise sobre [tema]!"
+- "Ponto muito relevante 👏"
+- "Artigo esclarecedor, parabéns à equipe!"
+- "Importante atualização para o setor"
+
+**Objetivo:** Gerar reconhecimento antes do cold email. Quando o decisor receber o email, pode já ter visto nosso perfil nos comentários/likes.
+
+### Anti-Patterns (PROIBIDO)
+- "Legal!" sozinho (genérico demais)
+- Múltiplos emojis
+- Perguntas (reservar para DM)
+- Qualquer menção a negócio/parceria
+- Comentários em posts não relacionados ao trabalho
+
+## Cadência ADVOCACIA-TECH (Escritórios)
+
+| Etapa | Dia | Ação | Aba do Sheets |
+|-------|-----|------|---------------|
+| E1 | D1 | Like em 2 posts recentes + Follow | `Like_Post` + `Follow` |
+| E2 | D3 | Like em 1 post adicional | `Like_Post` |
+| E3 | D5 | Comentar em post de conteúdo (se existir) | `Comment` |
+| E4 | 2d após última ação | ✅ `axiom_status` = "nurture" | — |
+
+**Diferenças vs KOSMOS:**
+- 2 likes iniciais (não 1) — escritórios postam menos
+- Sem like em story (escritórios raramente usam stories)
+- Comentário só em post de conteúdo jurídico (não genérico)
+- Cadência mais espaçada (advocacia = tom mais conservador)
