@@ -206,7 +206,7 @@ log "    3. C1-web-enrich: enriquecer website do escritorio (Apify)"
 log "    4. C1-decision-maker: identificar decisor (SEM Snov.io)"
 log "    5. M2: classificar ambos os leads (scoring)"
 log "    6. Avancar manual: enriching -> ready (pula M3/T15)"
-log "    7. M4: gerar copy de cadencia (SEM escrever no Sheets)"
+log "    7. M4: gerar copy de cadencia e enfileirar no Sheets (sem M5a/M5b)"
 log ""
 log "${YELLOW}  Custo estimado: ~\$1-3 (Apify actors com 1 resultado cada)${NC}"
 log "${GREEN}  Nenhum email sera enviado. Nenhuma DM sera enfileirada.${NC}"
@@ -373,29 +373,27 @@ checkpoint "Leads avancados para 'ready'. Prosseguir para M4?"
 
 
 # ==========================================
-# ETAPA 7: M4 CADENCE ORCHESTRATOR — gera copy (SEM Sheets)
+# ETAPA 7: M4 CADENCE ORCHESTRATOR — gera copy + Sheets
 # ==========================================
-header "ETAPA 7: M4 CADENCE ORCHESTRATOR — gerar copy (SEM escrever no Sheets)"
+header "ETAPA 7: M4 CADENCE ORCHESTRATOR — gerar copy e enfileirar no Sheets"
 
 run_module "M4-Cadence" "$MODULES_DIR/m4-cadence-orchestrator/prompt.md" \
 "MODO DE TESTE E2E — LIMITES OBRIGATORIOS:
 - Processar MAXIMO 5 leads (per_page=5)
 - Buscar leads com cadence_status=ready
-- Gerar copy personalizada normalmente (email cold, DM opener conforme o step)
-- *** NAO ESCREVER NO GOOGLE SHEETS ***
-  - PULAR completamente o STEP 4.2 (append no Sheets)
-  - PULAR a verificacao de duplicata no Sheets (STEP 4.1)
-- APENAS:
+- Executar o fluxo COMPLETO normalmente:
   1. Decidir o step e canal para cada lead
-  2. Gerar a copy personalizada
-  3. Atualizar cadence_status no CRM para 'queued'
-  4. Atualizar cadence_step no CRM
-  5. Logar atividade no CRM
+  2. Gerar copy personalizada (email cold, DM opener conforme o step)
+  3. Verificar duplicata no Sheets (STEP 4.1)
+  4. Escrever na Email_Queue ou DM_Queue do Sheets (STEP 4.2)
+  5. Atualizar cadence_status no CRM para 'queued'
+  6. Atualizar cadence_step no CRM
+  7. Logar atividade no CRM
 - MOSTRAR a copy gerada no relatorio (para revisao manual)
 - No relatorio, incluir '[E2E-TEST]' no titulo
-- IMPORTANTE: Isto e um teste. Nenhum email ou DM sera enviado."
+- NOTA: Os leads ficarao como 'pending' no Sheets. M5a/M5b NAO serao executados."
 
-checkpoint "CRM: leads com cadence_status=queued. Copy gerada no relatorio acima."
+checkpoint "CRM: leads com cadence_status=queued. Copy enfileirada no Sheets."
 
 log "  Verificando CRM..."
 verify_crm "Leads queued" "cadence_status=queued&per_page=10" > /dev/null
@@ -447,9 +445,10 @@ log "    discovered: $ADV_DISC | web_enriched: $ADV_WEB | dm_identified: $ADV_DM
 log "    enriching: $ADV_ENRICHING | ready: $ADV_READY | queued: $ADV_QUEUED"
 
 log ""
-log "${GREEN}  Nenhum email foi enviado.${NC}"
-log "${GREEN}  Nenhuma DM foi enfileirada.${NC}"
-log "${GREEN}  Google Sheets NAO foi modificado.${NC}"
+log "${GREEN}  Nenhum email foi enviado (M5a nao executado).${NC}"
+log "${GREEN}  Nenhuma DM foi enviada (M5b nao executado).${NC}"
+log "${YELLOW}  Google Sheets: Email_Queue/DM_Queue tem leads com status=pending.${NC}"
+log "${YELLOW}  Para limpar: remova as linhas de teste manualmente do Sheets.${NC}"
 log ""
 log "${BOLD}  =====================================${NC}"
 
