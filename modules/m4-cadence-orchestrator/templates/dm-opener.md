@@ -1,132 +1,160 @@
-# DM Opener (Step 2)
+# DM Opener (Step 3 - KOSMOS)
 
-> **Canal:** Instagram DM | **Max:** 50 palavras (300 chars) | **Objetivo:** Abrir conversa natural
+> **Canal:** Instagram DM | **Max:** 200 chars | **Objetivo:** Abrir conversa natural após warmup
+
+## Contexto da Cadência
+
+```
+DIA 0   │ Step 1: FOLLOW + LIKE
+DIA 2   │ Step 2: COMENTÁRIO
+DIA 5   │ Step 3: DM ← ESTE TEMPLATE
+```
+
+**Importante:** A DM não é mais fria. O lead já recebeu:
+- Notificação de follow
+- Notificação de like
+- Notificação de comentário
+
+O lead pode já ter visto seu perfil e notado suas interações.
+
+---
 
 ## Prompt de Geração
 
 ```
-Você é um copywriter escrevendo DM de Instagram como seguidor genuíno.
+Você está mandando uma DM para {{name}}.
 
-LEAD:
-- Nome: {{name}}
+CONTEXTO:
 - Bio: {{bio}}
-- Produto detectado: {{claude_analysis.product_detected}}
-- Post recente: "{{recent_posts[0].caption}}"
+- Produto: {{claude_analysis.product_detected}}
+- Último post: "{{recent_posts[0].caption}}"
 - Key observation: {{claude_analysis.key_observations}}
+- Já interagimos: follow + like + comentário (warmup completo)
 
-TAREFA: Escrever DM opener (max 50 palavras, max 300 caracteres).
+OBJETIVO:
+Fazer a pessoa abrir a DM e ir no seu perfil. Resposta é bônus.
 
 REGRAS OBRIGATÓRIAS:
-1. Parecer um seguidor que admira o trabalho, NÃO um vendedor
-2. Mencionar algo REAL e ESPECÍFICO (post, insight, resultado mencionado)
-3. Abrir conversa com pergunta ou comentário genuíno
-4. ZERO links
-5. Max 1 emoji (opcional)
-6. NUNCA: "trabalho com", "oferta", "parceria", "proposta", "oportunidade"
-7. Tom casual como se já acompanhasse há tempo
+1. Max 200 caracteres
+2. Reaja ao post de forma natural
+3. Tom de igual pra igual
+4. Sem travessão (—)
+5. Sem "Oi, tudo bem?"
+6. Sem emojis excessivos (max 1, opcional)
+7. Sem parecer fã exagerado
+8. Sem qualquer menção a trabalho/proposta/parceria
+9. ZERO links
 
-FORMATO OUTPUT:
-[mensagem direto, sem subject, sem saudação formal]
-```
+LÓGICA DE CONTEXTO:
 
----
+SE post é sobre RESULTADO (aluno, cliente, case):
+→ Reconheça o número + pergunte sobre o processo
+→ Ex: "50k em 3 meses é pesado. ela já tinha audiência ou começou do zero?"
 
-## KOSMOS (Criadores de Conteúdo)
+SE post é sobre CONTEÚDO EDUCATIVO:
+→ Comente algo específico + pergunta curta
+→ Ex: "o erro 3 é o mais comum que vejo. você acha que é mais mindset ou estratégia?"
 
-### Tom
-- Como seguidor que admira o trabalho
-- Sem link, sem venda
-- Pergunta ou elogio genuíno sobre conteúdo específico
-- Casual, natural
+SE post é sobre BASTIDORES/PRODUÇÃO:
+→ Curiosidade sobre o trabalho
+→ Ex: "módulo 4 de quantos? to curioso pra saber a estrutura"
 
-### Exemplos
+SE post é PESSOAL/LIFESTYLE (viagem, família, reflexão):
+→ Comentário leve e universal
+→ Ex: "bali parece surreal. quanto tempo de viagem?"
+→ Ex: "faz sentido. você acha que isso muda com o tempo?"
 
-**Lead A: Coach de Finanças Pessoais**
-```
-Oi Pedro! Seu post sobre o erro #1 dos iniciantes em investimento bateu forte aqui — cometi esse exatamente. Como você estrutura o conteúdo pra iniciante vs quem já investe?
-```
+SE post é MEME/HUMOR:
+→ Reação natural + pergunta opcional
+→ Ex: "hahaha real demais. acontece muito?"
 
-**Lead B: Personal Trainer com Mentoria**
-```
-Vi seu reel do treino em jejum, muito bom! To tentando implementar mas fico sem energia. Você indica pra todo mundo ou depende do perfil?
-```
+SE post NÃO TEM CONTEXTO ÚTIL (repost, promoção genérica):
+→ FALLBACK baseado na bio:
+→ Ex: "{{name}} curti demais seu conteúdo. como você começou nessa área?"
+→ Ex: "{{name}} vi que você trabalha com {{produto}}. quanto tempo nesse mercado?"
 
-**Lead C: Designer de Interiores**
-```
-Julia, aquele projeto do apartamento compacto ficou incrível! Como você consegue manter a identidade visual tão consistente entre projetos diferentes?
-```
-
-**Lead D: Coach de Produtividade**
-```
-Ana! Aquele carousel sobre time blocking mudou minha semana. Você usa alguma ferramenta específica pra gerenciar ou é tudo no papel mesmo?
-```
-
-**Lead E: Mentora de Confeitaria**
-```
-Carla, seus bolos são arte! Aquele de brigadeiro que viralizou... como você consegue a textura do ganache tão perfeita?
-```
-
-**Lead F: Nutricionista**
-```
-Fernanda! Seu post sobre lanches de escritório salvou minha semana. Você tem alguma dica pra quem viaja muito a trabalho?
+OUTPUT:
+[mensagem direto, sem saudação formal, max 200 chars]
 ```
 
 ---
 
-## OLIVEIRA-DEV (B2B)
+## Exemplos por Tipo de Post
 
-### Tom
-- Conexão profissional, networking genuíno
-- Mencionar contexto do perfil/empresa
-- Pergunta relevante sobre o negócio
-- Sem venda direta, interesse genuíno
+### RESULTADO (aluno, cliente, case)
 
-### Exemplos
+| Caption | DM |
+|---------|-----|
+| "Aluna fez 50k em 3 meses" | {{name}} 50k em 3 meses é pesado. ela já tinha audiência ou começou do zero? |
+| "Cliente fechou 200k" | {{name}} 200k é case forte. foi indicação ou ela veio do conteúdo? |
+| "Turma formou 150 alunos" | 150 alunos é volume grande. como você estrutura o suporte? |
 
-**Lead: Construtora**
-```
-Oi Carlos! Vi o post da entrega do condomínio — projeto bonito. Como vocês fazem a gestão de múltiplas obras simultâneas? To pesquisando sobre o tema pra um projeto.
-```
+### EDUCATIVO (dica, erro, tutorial)
 
-**Lead: Escritório Advocacia**
-```
-Dra. Mariana, vi que o escritório cresceu bastante esse ano. Como ta sendo gerenciar o volume de processos com a equipe maior? Sempre me interesso por gestão jurídica.
-```
+| Caption | DM |
+|---------|-----|
+| "5 erros no lançamento" | o erro 3 é o mais comum que vejo. você acha que é mais mindset ou estratégia? |
+| "Como estruturo meu dia" | {{name}} aquele bloco de 2h pro deep work funciona mesmo? to testando aqui |
+| "Framework de vendas" | framework interessante. você usa em todo tipo de produto ou tem exceções? |
 
-**Lead: Imobiliária**
-```
-Roberto! Vi o lançamento novo que vocês tão divulgando — localização boa. Como ta o mercado aí na região? Tenho acompanhado o setor.
-```
+### BASTIDORES (gravando, criando)
 
-**Lead: Arquiteto**
-```
-Paulo, aquele projeto residencial que você postou ficou muito bom! O cliente pediu referências específicas ou você teve liberdade criativa?
-```
+| Caption | DM |
+|---------|-----|
+| "Gravando o módulo 4" | módulo 4 de quantos? to curioso pra saber a estrutura |
+| "Por trás do lançamento" | {{name}} quanto tempo de preparação antes de abrir carrinho? |
+| "Editando domingo" | {{name}} você edita tudo ou tem equipe? sempre tive curiosidade |
+
+### PESSOAL/LIFESTYLE
+
+| Caption | DM |
+|---------|-----|
+| "Férias em Bali" | bali parece surreal. quanto tempo de viagem? |
+| "Tempo com família" | necessário demais. como você equilibra com a agenda? |
+| "Paciência é tudo" | faz sentido. você acha que isso muda com o tempo ou é constante? |
+
+### HUMOR
+
+| Caption | DM |
+|---------|-----|
+| "Quando o cliente some" | hahaha real demais. acontece muito? |
+| "POV: infoprodutor" | muito isso. qual a parte mais difícil na real? |
+| "Segunda chegou" | hahaha eu nessa. você consegue descansar no fim de semana? |
+
+### FALLBACK (sem contexto)
+
+| Situação | DM |
+|----------|-----|
+| Bio clara | {{name}} vi que você trabalha com {{produto}}. quanto tempo nesse mercado? |
+| Genérico | {{name}} curti demais seu conteúdo. como você começou nessa área? |
+
+---
+
+## Ajuste por sophistication_level
+
+| Level | Tom | Exemplo |
+|-------|-----|---------|
+| 7-10 | Peer-to-peer, técnico | "50k em 3 meses é pesado. ela já tinha audiência?" |
+| 4-6 | Consultivo, curioso | "como você estruturou isso? achei o formato interessante" |
+| 1-3 | Didático, acessível | "adorei o conteúdo! como você começou nessa área?" |
 
 ---
 
 ## Anti-Patterns (PROIBIDO)
 
-- "Oi! Vi que você é da área de X" (genérico)
-- "Oi, posso te mandar uma proposta?" (vendedor)
-- "Parabéns pelo trabalho!" (vazio, sem especificidade)
-- "Tenho uma oportunidade pra você" (spam)
-- "Gostaria de apresentar minha empresa" (corporativo)
-- Links de qualquer tipo
-- Múltiplos emojis
-- Mensagem muito longa (>300 chars)
-- Áudio ou figurinha
-
----
-
-## Estruturas que Funcionam
-
-| Estrutura | Exemplo |
-|-----------|---------|
-| Elogio específico + Pergunta | "Aquele post sobre X foi ótimo! Como você faz Y?" |
-| Identificação + Curiosidade | "To tentando fazer X que você mostrou. Funciona pra Y também?" |
-| Observação + Interesse | "Vi que você fez X — interessante! Qual foi o resultado?" |
-| Conexão + Dúvida genuína | "Seu conteúdo sobre X me ajudou muito. Você indica Z pra quem ta começando?" |
+```
+❌ "Oi! Vi que você é da área de X" (genérico)
+❌ "Oi, posso te mandar uma proposta?" (vendedor)
+❌ "Parabéns pelo trabalho!" (vazio, sem especificidade)
+❌ "Tenho uma oportunidade pra você" (spam)
+❌ "Gostaria de apresentar minha empresa" (corporativo)
+❌ "Trabalho com..." (vendedor)
+❌ Links de qualquer tipo
+❌ Múltiplos emojis
+❌ Mensagem muito longa (>200 chars)
+❌ Áudio ou figurinha
+❌ Tom de fã exagerado
+```
 
 ---
 
@@ -134,7 +162,20 @@ Paulo, aquele projeto residencial que você postou ficou muito bom! O cliente pe
 
 | Tipo | Limite |
 |------|--------|
-| Caracteres | 300 max |
-| Palavras | ~50 max |
+| Caracteres | 200 max |
 | Emojis | 1 max (opcional) |
 | Links | 0 (proibido) |
+
+---
+
+## Validação Antes de Enviar
+
+```
+[ ] Menos de 200 caracteres?
+[ ] Sem saudação formal ("Oi, tudo bem?")?
+[ ] Referência específica ao conteúdo do lead?
+[ ] Sem menção a trabalho/negócio/parceria?
+[ ] Tom de igual pra igual (não fã, não vendedor)?
+[ ] Termina com pergunta genuína?
+[ ] Max 1 emoji?
+```

@@ -25,12 +25,26 @@ GOOGLE_SHEETS_API_KEY=AIzaSyDDTGKRUuibxHFXPHl1ja7eRdPaUI6qGhc
 
 ## Planilha — Aba `DM_Queue`
 
-| username | message | status | cadence_step | contact_org_id | tenant | created_at | done_at |
-|----------|---------|--------|-------------|---------------|--------|-----------|---------|
+| Coluna | Campo | Uso |
+|--------|-------|-----|
+| A | username | @ do lead (sem @) |
+| B | message | Copy Step 2 (opener) |
+| C | follow-up | Copy Step 4 (follow-up) |
+| D | status | pending / sent / failed |
+| E | step | 2 ou 4 |
+| F | contact_org_id | ID do lead no CRM |
+| G | tenant | kosmos / oliveira-dev |
+| H | timestamp | Data de enfileiramento |
+| I | sent_at | Data de envio |
 
-- M5b escreve: pending
-- Axiom executa: muda pra done + preenche done_at
-- Se falha: failed
+**Fluxo:**
+- M4 escreve na fila com status `pending`
+- M5b lê fila, dispara Axiom, marca `sent` + preenche `sent_at`
+- Se falha: marca `failed`
+
+**Lógica de leitura:**
+- Se `step=2` → envia conteúdo da coluna B (message)
+- Se `step=4` → envia conteúdo da coluna C (follow-up)
 
 ## Instruções
 
@@ -43,15 +57,27 @@ curl -s -X GET "${CRM_BASE_URL}/v1/contacts?cadence_status=queued&per_page=20" \
 
 Filtrar: `custom_fields.next_channel` = "axiom_dm" e lead tem `instagram`.
 
-### STEP 2: Escrever no Sheets
+### STEP 2: Ler fila do Sheets (DM_Queue com status=pending)
 
 ```bash
-curl -s -X POST \
-  "https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEETS_ID}/values/DM_Queue!A:H:append?valueInputOption=RAW" \
-  -H "Authorization: Bearer ${GOOGLE_SHEETS_API_KEY}" \
-  -H "Content-Type: application/json" \
-  -d '{"values": [["<username>", "<message>", "pending", "<step>", "<contact_org_id>", "<tenant>", "<timestamp>", ""]]}'
+# Obter access token OAuth
+SHEETS_TOKEN=$(curl -s -X POST "https://oauth2.googleapis.com/token" \
+  -d "client_id=${GOOGLE_OAUTH_CLIENT_ID}" \
+  -d "client_secret=${GOOGLE_OAUTH_CLIENT_SECRET}" \
+  -d "refresh_token=${GOOGLE_OAUTH_REFRESH_TOKEN}" \
+  -d "grant_type=refresh_token" | python3 -c "import sys, json; print(json.load(sys.stdin)['access_token'])")
+
+# Ler toda a aba DM_Queue
+curl -s "https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEETS_ID}/values/DM_Queue!A:I" \
+  -H "Authorization: Bearer ${SHEETS_TOKEN}"
 ```
+
+**Para cada linha com status=pending:**
+1. Ler `step` (coluna E)
+2. Se `step=2` → usar `message` (coluna B)
+3. Se `step=4` → usar `follow-up` (coluna C)
+4. Disparar Axiom com o conteúdo correto
+5. Marcar `status=sent` (coluna D) e preencher `sent_at` (coluna I)
 
 ### STEP 3: Atualizar CRM
 

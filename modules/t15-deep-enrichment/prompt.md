@@ -3,9 +3,12 @@
 > **ANTES DE TUDO**: Execute `source /root/outbound-engine/.env` para carregar as credenciais.
 
 ## Contexto
-Modulo de enriquecimento profundo. Scrape 3 posts recentes do lead via Apify,
-analisa imagens com Claude (multimodal), e salva tudo no `source_detail`
-do CRM (JSONB existente). Roda APENAS pra leads A/B.
+Modulo de enriquecimento profundo. Comportamento varia por tenant:
+
+- **KOSMOS:** Scrape 3 posts recentes do Instagram via Apify, analisa imagens com Claude (multimodal)
+- **OLIVEIRA-DEV:** Scrape Google Maps (reviews) + site do escritório + Instagram (se tiver)
+
+Roda APENAS pra leads A/B. Salva tudo no `source_detail` do CRM (JSONB).
 
 ## Credenciais
 ```
@@ -38,9 +41,26 @@ Se zero leads, logar e encerrar.
 
 Para cada lead, extrair:
 - `id` (contact_org_id)
+- `tenant` (kosmos ou oliveira-dev)
 - `source_detail` (JSON completo - NAO perder dados existentes)
 - `source_detail.instagram` ou username do Instagram
 - `classificacao` (A ou B)
+- `company_name` (nome do escritório, para oliveira-dev)
+
+**DECISÃO POR TENANT:**
+```
+SE tenant == "kosmos":
+  → Executar STEP 2 (Instagram scraping)
+  → Executar STEP 3 (Análise multimodal)
+
+SE tenant == "oliveira-dev":
+  → Executar STEP 2-B (Google Maps + Site scraping)
+  → Executar STEP 3-B (Análise OLIVEIRA-DEV)
+```
+
+---
+
+## KOSMOS: Instagram Enrichment
 
 ### STEP 2: Scraping via Apify (por lead)
 
@@ -131,6 +151,132 @@ Ao visualizar as imagens + legendas + bio do lead, analise e determine:
   - 7-10 = avancado, produtizacao clara, funil definido
 
 - **uses_canva**: identificar templates tipicos do Canva nos posts
+
+---
+
+## OLIVEIRA-DEV: Google Maps + Site Enrichment
+
+### STEP 2-B: Scraping Google Maps + Site (por lead)
+
+#### 2b-a) Google Maps Reviews
+
+```bash
+# Buscar dados do Google Maps do escritório
+RUN_ID=$(curl -s -X POST "https://api.apify.com/v2/acts/apify~google-maps-scraper/runs?token=${APIFY_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "searchStringsArray": ["'${COMPANY_NAME}' escritório advocacia"],
+    "maxReviews": 5,
+    "language": "pt-BR",
+    "countryCode": "br"
+  }' | jq -r '.data.id')
+
+# Aguardar conclusao (max 60s)
+sleep 30
+
+# Buscar resultados
+MAPS_DATA=$(curl -s "https://api.apify.com/v2/actor-runs/${RUN_ID}/dataset/items?token=${APIFY_TOKEN}")
+```
+
+Extrair:
+- `rating` (nota geral)
+- `reviewsCount` (quantidade de reviews)
+- `reviews[]` (últimas 3-5 reviews)
+  - `text` (conteúdo da review)
+  - `rating` (nota individual)
+  - `author` (nome do autor)
+- `address`
+- `phone`
+- `website`
+
+#### 2b-b) Site do Escritório (se disponível)
+
+```bash
+# Scrape simples do site
+RUN_ID=$(curl -s -X POST "https://api.apify.com/v2/acts/apify~website-content-crawler/runs?token=${APIFY_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "startUrls": [{"url": "'${WEBSITE_URL}'"}],
+    "maxPagesPerCrawl": 5
+  }' | jq -r '.data.id')
+
+sleep 30
+
+SITE_DATA=$(curl -s "https://api.apify.com/v2/actor-runs/${RUN_ID}/dataset/items?token=${APIFY_TOKEN}")
+```
+
+Extrair:
+- Lista de advogados (team_size)
+- Áreas de atuação
+- Se tem portal do cliente (links como "área do cliente", "acompanhe seu processo")
+
+#### 2b-c) Instagram do Escritório (se tiver)
+
+Se `source_detail.instagram` existir, executar scraping igual KOSMOS (posts recentes).
+
+### STEP 3-B: Análise OLIVEIRA-DEV
+
+Analisar dados coletados e gerar:
+
+```json
+{
+  "google_maps": {
+    "rating": 4.8,
+    "review_count": 45,
+    "recent_reviews": [
+      {
+        "author": "Maria Silva",
+        "text": "Excelente atendimento, sempre me mantiveram informada sobre o andamento do processo",
+        "rating": 5
+      },
+      {
+        "author": "João Santos",
+        "text": "Escritório organizado, resolveram meu caso rapidamente",
+        "rating": 5
+      }
+    ]
+  },
+  "website_observations": {
+    "team_size": 8,
+    "areas": ["família", "sucessões", "imobiliário"],
+    "has_client_portal": false,
+    "digital_maturity": "low|medium|high"
+  },
+  "instagram": {
+    "handle": "@escritoriosilva",
+    "followers": 2500,
+    "recent_posts": [
+      {"caption": "Vitória no caso...", "likes": 45}
+    ]
+  },
+  "analysis": {
+    "detected_pains": ["atendimento ao cliente", "volume de processos"],
+    "recommended_service": "portal|gestao",
+    "recommended_angle": "atendimento|prazo|tempo_socio|organizacao",
+    "key_observations": "Escritório com boa reputação, equipe de 8 advogados, foco em família. Reviews mencionam 'manter informada' - oportunidade para portal de acompanhamento."
+  },
+  "enriched_at": "2026-03-01T10:00:00Z"
+}
+```
+
+**Critérios de análise OLIVEIRA-DEV:**
+
+- **detected_pains**: Identificar dores nas reviews e contexto
+  - Review menciona "informada/acompanhamento/transparência" → dor de atendimento
+  - Review menciona "rápido/eficiente" → escritório já é bom, focar em escalar
+  - Team_size > 5 → potencial dor de gestão
+
+- **recommended_service**:
+  - `portal` = Portal de acompanhamento (cliente vê status)
+  - `gestao` = Sistema de gestão (prazos, organização)
+
+- **recommended_angle** (para sequência de emails):
+  - `atendimento` = reduzir ligações de cliente
+  - `prazo` = não perder prazos
+  - `tempo_socio` = sócio gasta muito tempo em gestão
+  - `organizacao` = equipe desalinhada
+
+---
 
 ### STEP 4: Salvar no CRM (source_detail JSONB)
 
@@ -260,6 +406,8 @@ Salve em `/tmp/t15_report_{YYYY-MM-DD}.log`
 
 ## Exemplo de source_detail FINAL
 
+### KOSMOS (Criadores de Conteúdo)
+
 ```json
 {
   "followers_count": 12000,
@@ -301,5 +449,58 @@ Salve em `/tmp/t15_report_{YYYY-MM-DD}.log`
     "key_observations": "Creator educacional com audiencia engajada. Vende mentoria. Usa Canva. Bom candidato pra oferta de automacao."
   },
   "enriched_at": "2025-02-28T10:30:00Z"
+}
+```
+
+### OLIVEIRA-DEV (Escritórios de Advocacia)
+
+```json
+{
+  "company_name": "Silva & Associados Advogados",
+  "full_name": "Dr. Carlos Silva",
+  "email": "carlos@silvaadvogados.com.br",
+  "google_maps": {
+    "rating": 4.8,
+    "review_count": 45,
+    "recent_reviews": [
+      {
+        "author": "Maria Santos",
+        "text": "Excelente atendimento, sempre me mantiveram informada sobre o andamento do processo. Recomendo!",
+        "rating": 5
+      },
+      {
+        "author": "João Oliveira",
+        "text": "Escritório muito organizado e eficiente. Resolveram meu caso de divórcio rapidamente.",
+        "rating": 5
+      },
+      {
+        "author": "Ana Costa",
+        "text": "Profissionais competentes. Única ressalva é que às vezes demora pra retornar ligação.",
+        "rating": 4
+      }
+    ],
+    "address": "Rua das Flores, 123 - Centro, Florianópolis/SC",
+    "phone": "(48) 3333-4444"
+  },
+  "website_observations": {
+    "team_size": 8,
+    "areas": ["família", "sucessões", "imobiliário"],
+    "has_client_portal": false,
+    "digital_maturity": "medium"
+  },
+  "instagram": {
+    "handle": "silvaadvogados",
+    "followers": 2500,
+    "recent_posts": [
+      {"caption": "Vitória no caso de divórcio litigioso...", "likes": 45, "type": "static"}
+    ]
+  },
+  "analysis": {
+    "detected_pains": ["atendimento ao cliente", "transparência no acompanhamento"],
+    "recommended_service": "portal",
+    "recommended_angle": "atendimento",
+    "key_observations": "Escritório com boa reputação (4.8 estrelas). Reviews mencionam 'manter informada' e 'demora pra retornar' - oportunidade clara para portal de acompanhamento. Equipe de 8 advogados, foco em família."
+  },
+  "enriched_at": "2026-03-01T10:30:00Z"
 }
 ```

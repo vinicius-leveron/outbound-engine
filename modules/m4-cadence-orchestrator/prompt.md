@@ -31,51 +31,76 @@ Filtros GET: `cadence_status`, `classificacao`, `tenant`, `per_page`, `page`
 
 ## Sequências de Cadência
 
-### KOSMOS (criadores de conteúdo)
+### KOSMOS (criadores de conteúdo) — Instagram Only
 ```
-Step 1: Email frio (dia 0)
-Step 2: DM Instagram (dia 2)
-Step 3: Email follow-up (dia 5)
-Step 4: DM follow-up (dia 8)
-Step 5: Email break-up (dia 12)
+Step 1: Follow + Like (dia 0)        → M8 executa
+Step 2: Comentário no post (dia 2)   → M8 executa
+Step 3: DM Instagram (dia 5)         → M5b executa
 ```
 
-### OLIVEIRA-DEV (B2B)
+**Canal único:** Instagram (warmup antes da DM)
+**Template:** `templates/instagram-sequence-kosmos.md`
+
+**Dados para personalização (T15):**
+- `source_detail.bio` → bio do Instagram
+- `source_detail.recent_posts[]` → últimos 3 posts
+- `source_detail.claude_analysis.sophistication_level` → tom da mensagem
+- `source_detail.claude_analysis.product_detected` → produto/nicho
+- `source_detail.claude_analysis.key_observations` → hooks
+
+---
+
+### OLIVEIRA-DEV (B2B / Advocacia-Tech) — Email Only
 ```
-Step 1: Email frio (dia 0)
-Step 2: DM Instagram (dia 2)
-Step 3: Email follow-up (dia 5)
-Step 4: DM follow-up (dia 8)
-Step 5: Email break-up (dia 14)
+Step 1: Email frio (dia 0)           → M5a executa
+Step 2: Email valor (dia 4)          → M5a executa
+Step 3: Email ângulo diferente (dia 9) → M5a executa
+Step 4: Email prova social (dia 14)  → M5a executa
+Step 5: Email break-up (dia 21)      → M5a executa
 ```
 
-### ADVOCACIA-TECH (Escritórios de Advocacia)
-```
-Step 1: Email frio para decisor (dia 0)
-Step 2: DM Instagram do escritório (dia 3)
-Step 3: Email follow-up (dia 7)
-Step 4: DM follow-up (dia 10)
-Step 5: Email break-up (dia 16)
-```
+**Canal único:** Email
+**Template:** `templates/email-sequence-oliveira.md`
 
-**Dados extras para personalização (advocacia-tech):**
-- `source_detail.decision_maker.name` → nome do decisor
-- `source_detail.decision_maker.title` → cargo
-- `source_detail.practice_areas[]` → áreas de atuação
-- `source_detail.website_analysis.digital_maturity_score` → maturidade digital
-- `source_detail.google_maps.rating` → reputação
-- `source_detail.instagram.handle` → IG do escritório
+**Hierarquia de personalização (T15):**
+1. `source_detail.google_maps.recent_reviews[]` → reviews (prioridade máxima)
+2. `source_detail.instagram.recent_posts[]` → posts do IG do escritório
+3. `source_detail.website_observations` → observações do site
+4. `source_detail.team_size` → tamanho da equipe
+5. Área de atuação + dor genérica (fallback)
 
-**Nota sobre Axiom:** Se `axiom_status` = "nurture" (lead foi aquecido pelo M8), o lead PULA step 1 e começa direto na DM (step 2). O aquecimento social já criou contexto.
+**Dois serviços disponíveis:**
+- **Sistema de Gestão:** prazos, organização, demandas
+- **Portal de Acompanhamento:** cliente vê status, reduz ligações
+
+**Seleção do serviço:**
+- Review menciona "informada/transparência/acompanhamento" → Portal
+- Review menciona "rápido/eficiente/organizado" → Gestão
+- Equipe > 5 advogados → Gestão
+- Área família/civil → Portal (volume de clientes)
+- Área empresarial/tributário → Gestão (complexidade)
 
 ## Fluxo de entrada
 
+### KOSMOS (Instagram)
+
 | Condição | Ação |
 |----------|------|
-| `cadence_status` = "ready" + classificacao A/B + tem email | Entra step 1 (email) |
-| `cadence_status` = "ready" + `axiom_status` = "nurture" | Entra step 2 (DM, pula email) |
-| `cadence_status` = "ready" + sem email + tem instagram | Entra step 2 (DM) |
-| `cadence_status` = "in_sequence" + delay atingido | Avança pro próximo step |
+| `cadence_status` = "ready" + tenant = "kosmos" + tem instagram | Entra step 1 (follow+like via M8) |
+| `cadence_status` = "in_sequence" + step 1 + 2 dias | Avança step 2 (comentário via M8) |
+| `cadence_status` = "in_sequence" + step 2 + 3 dias | Avança step 3 (DM via M5b) |
+| `cadence_status` = "in_sequence" + step 3 enviado | Cadência completa → archived |
+
+### OLIVEIRA-DEV (Email)
+
+| Condição | Ação |
+|----------|------|
+| `cadence_status` = "ready" + tenant = "oliveira-dev" + tem email | Entra step 1 (email cold) |
+| `cadence_status` = "in_sequence" + step 1 + 4 dias | Avança step 2 (email valor) |
+| `cadence_status` = "in_sequence" + step 2 + 5 dias | Avança step 3 (email ângulo) |
+| `cadence_status` = "in_sequence" + step 3 + 5 dias | Avança step 4 (email case) |
+| `cadence_status` = "in_sequence" + step 4 + 7 dias | Avança step 5 (email breakup) |
+| `cadence_status` = "in_sequence" + step 5 enviado | Cadência completa → archived |
 
 ## Instruções — Execute na ordem
 
@@ -122,21 +147,43 @@ Filtrar: `do_not_contact` != true
 ### STEP 2: Decidir próximo step
 
 **Lead entrando (cadence_status = "ready"):**
-- Checar tenant → selecionar sequência correta
-- Checar axiom_status → se "nurture", pular pra step 2 (DM)
-- Checar se tem email → se não, ir direto pra DM
-- Setar step inicial
+
+```
+SE tenant == "kosmos":
+  - Verificar: tem instagram?
+  - SIM → Entra step 1 (follow+like via M8)
+  - NÃO → Skip (não pode processar sem IG)
+
+SE tenant == "oliveira-dev":
+  - Verificar: tem email?
+  - SIM → Entra step 1 (email cold)
+  - NÃO → Skip (não pode processar sem email)
+```
 
 **Lead em sequência (cadence_status = "in_sequence"):**
-- Ler `cadence_step` atual e `last_contacted`
-- Calcular dias desde `last_contacted`
-- Se dias >= delay do próximo step → avançar
-- Se último step → cadência completa
+
+```
+SE tenant == "kosmos":
+  delays = [0, 2, 5]  # step 1, 2, 3
+  max_step = 3
+
+SE tenant == "oliveira-dev":
+  delays = [0, 4, 9, 14, 21]  # steps 1-5
+  max_step = 5
+
+dias_desde = (now - last_contacted).days
+proximo_step = cadence_step + 1
+
+SE dias_desde >= delays[proximo_step]:
+  SE proximo_step > max_step → cadência completa → archived
+  SENÃO → avançar pro step
+```
 
 **Verificações antes de avançar:**
-- Se lead respondeu (check campo `cadence_status` mudou pra "replied" pelo M6) → STOP
+- Se lead respondeu (`cadence_status` = "replied") → STOP
 - Se bounce → STOP
 - Se unsubscribed → STOP
+- Se not_interested → STOP
 
 ### STEP 3: Gerar mensagem personalizada com AI
 
@@ -146,10 +193,20 @@ curl -s -X GET "${CRM_BASE_URL}/v1/contacts/${CONTACT_ID}" \
   -H "Authorization: Bearer ${CRM_API_KEY}"
 ```
 
-Extrair de `source_detail`:
+**KOSMOS — Extrair de `source_detail`:**
 - `bio` (bio do Instagram)
-- `recent_posts` (array com 3 posts recentes - se existir)
-- `claude_analysis` (analise do T15 - se existir)
+- `recent_posts[]` (últimos 3 posts)
+- `claude_analysis.sophistication_level` (1-10, ajusta tom)
+- `claude_analysis.product_detected` (nicho/produto)
+- `claude_analysis.key_observations` (hooks)
+
+**OLIVEIRA-DEV — Extrair de `source_detail`:**
+- `google_maps.recent_reviews[]` (reviews, prioridade 1)
+- `instagram.recent_posts[]` (posts do IG do escritório)
+- `website_observations` (dados do site)
+- `team_size` (tamanho da equipe)
+- `areas[]` (áreas de atuação)
+- `full_name` (nome do decisor)
 
 ---
 
@@ -157,19 +214,34 @@ Extrair de `source_detail`:
 
 **IMPORTANTE:** Use os templates de geração em `./templates/` para gerar copy personalizada.
 
+### KOSMOS (Instagram)
+
 | Step | Canal | Template | Max |
 |------|-------|----------|-----|
-| 1 | Email | `templates/email-cold.md` | 100 palavras |
-| 2 | DM | `templates/dm-opener.md` | 50 palavras (300 chars) |
-| 3 | Email | `templates/email-followup.md` | 80 palavras |
-| 4 | DM | `templates/dm-followup.md` | 50 palavras |
-| 5 | Email | `templates/email-breakup.md` | 50 palavras |
+| 1 | Follow+Like | N/A (ação M8) | - |
+| 2 | Comentário | `templates/comment-warmup.md` | 50 chars |
+| 3 | DM | `templates/dm-opener.md` | 200 chars |
+
+**Template unificado:** `templates/instagram-sequence-kosmos.md`
+
+### OLIVEIRA-DEV (Email)
+
+| Step | Canal | Template | Max |
+|------|-------|----------|-----|
+| 1 | Email cold | `templates/email-sequence-oliveira.md` | 80 palavras |
+| 2 | Email valor | `templates/email-sequence-oliveira.md` | 80 palavras |
+| 3 | Email ângulo | `templates/email-sequence-oliveira.md` | 80 palavras |
+| 4 | Email case | `templates/email-sequence-oliveira.md` | 80 palavras |
+| 5 | Email breakup | `templates/email-sequence-oliveira.md` | 50 palavras |
+
+**Template unificado:** `templates/email-sequence-oliveira.md` (com lógica por step)
 
 Cada template contém:
-- Prompt de geração estruturado
-- Exemplos por tenant (KOSMOS vs Oliveira-dev)
+- Prompt de geração estruturado com lógica por step
+- Hierarquia de personalização
+- Banco de dores e serviços
 - Anti-patterns a evitar
-- Ajustes por sophistication_level e classificação
+- Matriz de ângulos (OLIVEIRA-DEV)
 
 ---
 
@@ -201,97 +273,60 @@ Usar TODOS os dados pra gerar copy genuinamente personalizada:
 
 ### Regras Obrigatórias de Copy
 
-- NUNCA: audio, mensagem copiada, emojis excessivos, "posso te ajudar?"
-- Tom casual, peer-to-peer, como se ja acompanhasse o trabalho
-- **Referencia obrigatoria a pelo menos 1 conteudo REAL do lead** (post, produto, visual)
-- Ajustar por tenant:
-  * KOSMOS: casual, criador pra criador
-  * Oliveira-dev: profissional, mas acessivel
+**PROIBIDO em qualquer mensagem:**
+- Erros gramaticais ou de digitação
+- Tom amador ou informal demais
+- Emojis excessivos (max 1 por mensagem DM, zero em email)
+- Links quebrados ou genéricos
+- Falta de personalização (nome, referência a conteúdo)
+- "Olá, tudo bem?" e outras aberturas genéricas
+- "posso te ajudar?", "vim oferecer", "temos uma solução"
+- Pressão ou urgência artificial ("última chance", etc.)
+- Audio ou mensagem copiada
+
+**OBRIGATÓRIO:**
+- Revisar copy antes de enfileirar (ortografia, tom, personalização)
+- **Referencia obrigatoria a pelo menos 1 conteudo REAL do lead** (post, produto, bio)
+- Tom profissional mas humano
+- CTA claro e não agressivo
+- Assinatura consistente
+
+**Checklist antes de enfileirar cada mensagem:**
+```
+[ ] Nome do lead correto?
+[ ] Referência específica (não genérica)?
+[ ] Sem erros de português?
+[ ] Tom adequado ao tenant?
+[ ] CTA presente e não vendedor?
+```
+
+**Ajustar por tenant:**
+- KOSMOS: casual, criador pra criador
+- OLIVEIRA-DEV: profissional mas humano, sem "venho por meio desta", focar em dores do setor jurídico
 
 ---
 
-### TEMPLATES ADVOCACIA-TECH (Escritórios de Advocacia)
+### TEMPLATES OLIVEIRA-DEV (B2B / Escritórios de Advocacia)
 
-**Tom geral:** Profissional mas acessível. Mostrar conhecimento do setor jurídico. Focar em dores reais: gestão de processos, tempo com burocracia, atendimento ao cliente.
+**Ver template completo:** `templates/email-sequence-oliveira.md`
 
-**STEP 1 — Email frio para decisor:**
+O template unificado contém:
+- Lógica por step (1-5) com objetivos diferentes
+- Hierarquia de personalização (review > post > site > equipe > área)
+- Dois serviços: Sistema de Gestão vs Portal de Acompanhamento
+- Matriz de ângulos para evitar repetição entre emails
+- Banco de dores e gatilhos
+- Exemplos completos por step
 
-```
-Assunto: [Área de atuação] + tecnologia — uma combinação que funciona
-
-[Nome do decisor],
-
-Vi que o [Nome do escritório] atua com [área de prática]. Tenho trabalhado com escritórios de perfil parecido em projetos de [automação/portal do cliente/gestão].
-
-A maioria dos sócios que converso menciona o tempo gasto em tarefas operacionais — controle de prazos, atualização de clientes, emissão de documentos.
-
-Seria interessante trocar uma ideia sobre como outros escritórios estão usando tech pra liberar tempo dos advogados?
-
-Vinícius Oliveira
-```
-
-**Variações por área de prática:**
-
-| Área | Gancho |
-|------|--------|
-| Empresarial/M&A | "due diligence automatizada", "gestão de documentos" |
-| Tributário | "controle de prazos fiscais", "dashboard de processos" |
-| Trabalhista | "volume de reclamações", "automação de cálculos" |
-| Digital/Tech | "natural fit com inovação", "clientes esperam tech" |
-| Civil | "gestão de contratos", "portal do cliente" |
-
-**STEP 2 — DM Instagram do escritório:**
-
-```
-Oi! Vi o trabalho do escritório com [área]. Tenho ajudado escritórios similares a otimizar a gestão com tech. Vocês usam algum sistema específico hoje?
-```
-
-**Variações:**
-- "Vi que atuam forte em [área]. Como está a gestão de processos aí?"
-- "Acompanho o trabalho de vocês. Já pensaram em um portal pro cliente acompanhar os casos?"
-
-**STEP 3 — Email follow-up:**
-
-```
-Assunto: Re: [assunto anterior]
-
-[Nome],
-
-Voltando ao contato anterior — recentemente ajudei o [tipo de escritório similar] a reduzir 40% do tempo gasto em atualização de clientes com um portal simples.
-
-Se fizer sentido pro [Nome do escritório], posso mostrar como funcionaria na prática.
-
-Vinícius
-```
-
-**STEP 4 — DM follow-up:**
-
-```
-[Nome], enviei um email sobre automação pra escritórios. Chegou a ver? Se quiser, podemos marcar 15min pra eu mostrar cases similares.
-```
-
-**STEP 5 — Email break-up:**
-
-```
-Assunto: Última tentativa
-
-[Nome],
-
-Entendo que agenda de sócio é corrida. Não quero ser insistente.
-
-Se em algum momento fizer sentido otimizar a operação do escritório com tecnologia, estou por aqui.
-
-Sucesso,
-Vinícius
-```
-
-**REGRAS ESPECÍFICAS ADVOCACIA-TECH:**
+**REGRAS ESPECÍFICAS OLIVEIRA-DEV:**
 - SEMPRE usar nome do decisor (não "Prezados" genérico)
-- SEMPRE mencionar área de atuação específica
+- SEMPRE usar observação específica (review, post, site, equipe)
 - TOM: profissional, mas humano — evitar "venho por meio desta"
-- Focar em DOR: tempo, burocracia, atendimento ao cliente
+- Focar em DOR específica detectada (prazo, atendimento, tempo do sócio)
 - NÃO mencionar preço no primeiro contato
-- Subject curto e direto (evitar "Proposta Comercial")
+- Subject curto e direto (max 5 palavras, específico)
+- Max 80 palavras por email (50 no breakup)
+- Assinatura: "Vinicius Oliveira"
 
 ### STEP 4: Enfileirar e atualizar cadência
 
@@ -323,10 +358,19 @@ curl -s -X POST "${SHEETS_BASE}/Email_Queue!A:I:append?valueInputOption=RAW" \
 
 ```bash
 # Se canal = axiom_dm → escrever na aba DM_Queue do Sheets
-curl -s -X POST "${SHEETS_BASE}/DM_Queue!A:H:append?valueInputOption=RAW" \
+# Schema: username | message | follow-up | status | step | contact_org_id | tenant | timestamp | sent_at
+
+# STEP 2 (DM opener) — escreve em message (B), follow-up (C) vazio
+curl -s -X POST "${SHEETS_BASE}/DM_Queue!A:I:append?valueInputOption=RAW" \
   -H "Authorization: Bearer ${SHEETS_TOKEN}" \
   -H "Content-Type: application/json" \
-  -d '{"values": [["<username>", "<message>", "pending", "<step>", "<contact_org_id>", "<tenant>", "<timestamp>", ""]]}'
+  -d '{"values": [["<username>", "<message>", "", "pending", "2", "<contact_org_id>", "<tenant>", "<timestamp>", ""]]}'
+
+# STEP 4 (DM follow-up) — escreve em follow-up (C), message (B) vazio
+curl -s -X POST "${SHEETS_BASE}/DM_Queue!A:I:append?valueInputOption=RAW" \
+  -H "Authorization: Bearer ${SHEETS_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{"values": [["<username>", "", "<follow_up_message>", "pending", "4", "<contact_org_id>", "<tenant>", "<timestamp>", ""]]}'
 ```
 
 **4.3 — Atualizar CRM (só se Sheets sucesso):**
