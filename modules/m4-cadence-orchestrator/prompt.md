@@ -31,13 +31,21 @@ Filtros GET: `cadence_status`, `classificacao`, `tenant`, `per_page`, `page`
 
 ## Sequências de Cadência
 
-### KOSMOS (criadores de conteúdo) — Instagram Only
+### KOSMOS (criadores de conteúdo) — Instagram Only (Fire-and-Forget)
 ```
-Step 1: Follow + Like (dia 0)        → M8 executa
-Step 2: Comentário no post (dia 2)   → M8 executa
-Step 3: DM Instagram (dia 5)         → M5b executa
+Step 1: Follow + Like (dia 0)        → Escreve em Follow + Like_Post
+Step 2: Comentário no post (dia 2)   → Escreve em Comment
+Step 3: DM Instagram (dia 5)         → Escreve em DM_Queue + Review_Queue
+        ↓
+        cadence_status = "awaiting_review"
+        --- PAUSA: Humano verifica DM ---
+        Se respondeu → replied
+        Se não respondeu → in_sequence (continua)
+        ↓
+Step 4: DM Follow-up (dia 10)        → Escreve em DM_Queue → archived
 ```
 
+**Modelo:** Fire-and-forget (CRM é fonte de verdade, não Axiom)
 **Canal único:** Instagram (warmup antes da DM)
 **Template:** `templates/instagram-sequence-kosmos.md`
 
@@ -82,14 +90,21 @@ Step 5: Email break-up (dia 21)      → M5a executa
 
 ## Fluxo de entrada
 
-### KOSMOS (Instagram)
+### KOSMOS (Instagram) — Fire-and-Forget
 
 | Condição | Ação |
 |----------|------|
-| `cadence_status` = "ready" + tenant = "kosmos" + tem instagram | Entra step 1 (follow+like via M8) |
-| `cadence_status` = "in_sequence" + step 1 + 2 dias | Avança step 2 (comentário via M8) |
-| `cadence_status` = "in_sequence" + step 2 + 3 dias | Avança step 3 (DM via M5b) |
-| `cadence_status` = "in_sequence" + step 3 enviado | Cadência completa → archived |
+| `cadence_status` = "ready" + tenant = "kosmos" + tem instagram | Entra step 1 (Follow + Like_Post) |
+| `cadence_status` = "in_sequence" + step 1 + 2 dias | Avança step 2 (Comment) |
+| `cadence_status` = "in_sequence" + step 2 + 3 dias | Avança step 3 (DM_Queue) → `awaiting_review` |
+| `cadence_status` = "awaiting_review" → humano marca `no_response` | Volta pra `in_sequence` |
+| `cadence_status` = "in_sequence" + step 3 + 5 dias | Avança step 4 (DM follow-up) → `archived` |
+
+**Status `awaiting_review`:**
+- Após enviar DM (step 3), status muda para `awaiting_review`
+- Humano verifica DM no Instagram e preenche Review_Queue
+- Se `replied` → fim
+- Se `no_response` → volta para `in_sequence`, permite step 4
 
 ### OLIVEIRA-DEV (Email)
 
@@ -128,21 +143,43 @@ curl -s -X GET "${CRM_BASE_URL}/v1/contacts?cadence_status=ready&classificacao=A
 curl -s -X GET "${CRM_BASE_URL}/v1/contacts?cadence_status=ready&classificacao=B&per_page=50" \
   -H "Authorization: Bearer ${CRM_API_KEY}"
 
-# Leads já em sequência
+# Leads já em sequência (pra avançar steps)
 curl -s -X GET "${CRM_BASE_URL}/v1/contacts?cadence_status=in_sequence&per_page=50" \
-  -H "Authorization: Bearer ${CRM_API_KEY}"
-
-# Leads queued (possíveis órfãos - queued mas não estão na fila do Sheets)
-curl -s -X GET "${CRM_BASE_URL}/v1/contacts?cadence_status=queued&per_page=50" \
   -H "Authorization: Bearer ${CRM_API_KEY}"
 ```
 
-**Tratamento de leads queued (órfãos):**
-- Buscar Email_Queue e DM_Queue atual
-- Se lead está `queued` no CRM mas NÃO existe na fila com status="pending" → recriar entrada na fila
-- Isso recupera leads que ficaram presos por falha de rede/timeout
+**IMPORTANTE:** Não buscar mais `queued` — modelo fire-and-forget não usa status de fila.
 
 Filtrar: `do_not_contact` != true
+
+---
+
+## Estrutura das Planilhas (Fire-and-Forget)
+
+**Princípio:** Sheets são filas de trabalho para o Axiom consumir. Sem colunas de status.
+
+### KOSMOS
+
+| Aba | Colunas |
+|-----|---------|
+| `Follow` | A: username |
+| `Like_Post` | A: username, B: post_url |
+| `Comment` | A: username, B: post_url, C: comment_text |
+| `DM_Queue` | A: username, B: message |
+| `Review_Queue` | A: username, B: contact_org_id, C: dm_sent_at, D: review_status |
+
+**Review_Queue:** Interface para verificação manual
+- M4 popula quando envia DM (step 3)
+- Humano preenche `review_status`: `replied`, `not_interested`, ou `no_response`
+- Script `sync-review.sh` lê e atualiza CRM
+
+### OLIVEIRA-DEV
+
+| Aba | Colunas |
+|-----|---------|
+| `Email_Queue` | A: email, B: subject, C: html_body, D: step, E: contact_org_id, F: tenant, G: created_at |
+
+**Nota:** Email mantém estrutura anterior (M5a processa)
 
 ### STEP 2: Decidir próximo step
 
@@ -151,7 +188,7 @@ Filtrar: `do_not_contact` != true
 ```
 SE tenant == "kosmos":
   - Verificar: tem instagram?
-  - SIM → Entra step 1 (follow+like via M8)
+  - SIM → Entra step 1 (Follow + Like_Post)
   - NÃO → Skip (não pode processar sem IG)
 
 SE tenant == "oliveira-dev":
@@ -159,6 +196,48 @@ SE tenant == "oliveira-dev":
   - SIM → Entra step 1 (email cold)
   - NÃO → Skip (não pode processar sem email)
 ```
+
+**Lead em sequência (cadence_status = "in_sequence"):**
+
+```
+# KOSMOS: delays em dias
+DELAYS_KOSMOS = {1: 0, 2: 2, 3: 5, 4: 10}
+
+# OLIVEIRA-DEV: delays em dias
+DELAYS_OLIVEIRA = {1: 0, 2: 4, 3: 9, 4: 14, 5: 21}
+
+dias_desde = (agora - last_action_at).days
+proximo_step = cadence_step + 1
+
+SE tenant == "kosmos":
+  max_step = 4
+  delays = DELAYS_KOSMOS
+
+  # Step 3 → awaiting_review (precisa verificação manual)
+  SE cadence_step == 3:
+    # Só avança se status voltou pra in_sequence (humano marcou no_response)
+    SKIP (aguardando review)
+
+SE tenant == "oliveira-dev":
+  max_step = 5
+  delays = DELAYS_OLIVEIRA
+
+SE proximo_step > max_step:
+  → cadence_status = "archived" (fim)
+
+SE dias_desde < delays[proximo_step] - delays[cadence_step]:
+  → SKIP (ainda não é hora)
+
+→ Avançar para proximo_step
+```
+
+**Status especial `awaiting_review` (KOSMOS):**
+- Após step 3 (DM), status muda para `awaiting_review`
+- M4 NÃO processa leads com esse status
+- Humano verifica e preenche Review_Queue
+- Script `sync-review.sh` atualiza CRM:
+  - Se `replied` → cadence_status = "replied"
+  - Se `no_response` → cadence_status = "in_sequence" (permite step 4)
 
 **Lead em sequência (cadence_status = "in_sequence"):**
 
@@ -216,13 +295,19 @@ curl -s -X GET "${CRM_BASE_URL}/v1/contacts/${CONTACT_ID}" \
 
 ### KOSMOS (Instagram)
 
-| Step | Canal | Template | Max |
-|------|-------|----------|-----|
-| 1 | Follow+Like | N/A (ação M8) | - |
-| 2 | Comentário | `templates/comment-warmup.md` | 50 chars |
-| 3 | DM | `templates/dm-opener.md` | 200 chars |
+| Step | Canal | Template | Max | Status após |
+|------|-------|----------|-----|-------------|
+| 1 | Follow+Like | N/A (escreve em Follow + Like_Post) | - | in_sequence |
+| 2 | Comentário | `templates/comment-warmup.md` | 50 chars | in_sequence |
+| 3 | DM | `templates/dm-opener.md` | 200 chars | **awaiting_review** |
+| 4 | DM Follow-up | `templates/dm-followup.md` | 200 chars | archived |
 
 **Template unificado:** `templates/instagram-sequence-kosmos.md`
+
+**Nota sobre step 3 → 4:**
+- Step 3 muda status para `awaiting_review` (pausa automação)
+- Humano verifica DM e preenche Review_Queue
+- Se `no_response` → script muda para `in_sequence` → M4 processa step 4
 
 ### OLIVEIRA-DEV (Email)
 
@@ -328,67 +413,100 @@ O template unificado contém:
 - Max 80 palavras por email (50 no breakup)
 - Assinatura: "Vinicius Oliveira"
 
-### STEP 4: Enfileirar e atualizar cadência
+### STEP 4: Enfileirar e atualizar cadência (Fire-and-Forget)
 
-**ORDEM CRÍTICA:** Primeiro escreve no Sheets, depois atualiza CRM. Se Sheets falhar, lead fica "ready" e será retentado.
+**Modelo:** Escreve no Sheets e atualiza CRM imediatamente. Não espera confirmação do Axiom.
 
-Para cada lead com envio decidido:
+#### 4.1 — KOSMOS: Enfileirar por Step
 
-**4.1 — Verificar duplicata (OBRIGATÓRIO):**
-
+**Step 1 — Follow + Like:**
 ```bash
-# Buscar fila atual pra checar se lead já está pendente
-QUEUE_DATA=$(curl -s "${SHEETS_BASE}/Email_Queue!A:I?key=${GOOGLE_SHEETS_API_KEY}")
-
-# Verificar se contact_org_id já existe com status=pending (coluna F = contact_org_id, coluna D = status)
-# Se encontrar → SKIP este lead (já está na fila)
-```
-
-Se lead já está na fila com `status=pending` → **NÃO adicionar novamente**, pular pro próximo lead.
-
-**4.2 — Escrever na fila (Sheets PRIMEIRO):**
-
-```bash
-# Se canal = email → escrever na aba Email_Queue do Sheets
-curl -s -X POST "${SHEETS_BASE}/Email_Queue!A:I:append?valueInputOption=RAW" \
+# Escrever em Follow (A: username)
+curl -s -X POST "${SHEETS_BASE}/Follow!A:A:append?valueInputOption=RAW" \
   -H "Authorization: Bearer ${SHEETS_TOKEN}" \
   -H "Content-Type: application/json" \
-  -d '{"values": [["<email>", "<subject>", "<html_body>", "pending", "<step>", "<contact_org_id>", "<tenant>", "<timestamp>", ""]]}'
-```
+  -d '{"values": [["<username>"]]}'
 
-```bash
-# Se canal = axiom_dm → escrever na aba DM_Queue do Sheets
-# Schema: username | message | follow-up | status | step | contact_org_id | tenant | timestamp | sent_at
-
-# STEP 2 (DM opener) — escreve em message (B), follow-up (C) vazio
-curl -s -X POST "${SHEETS_BASE}/DM_Queue!A:I:append?valueInputOption=RAW" \
+# Escrever em Like_Post (A: username, B: post_url)
+# post_url vem de source_detail.recent_posts[0].url
+curl -s -X POST "${SHEETS_BASE}/Like_Post!A:B:append?valueInputOption=RAW" \
   -H "Authorization: Bearer ${SHEETS_TOKEN}" \
   -H "Content-Type: application/json" \
-  -d '{"values": [["<username>", "<message>", "", "pending", "2", "<contact_org_id>", "<tenant>", "<timestamp>", ""]]}'
-
-# STEP 4 (DM follow-up) — escreve em follow-up (C), message (B) vazio
-curl -s -X POST "${SHEETS_BASE}/DM_Queue!A:I:append?valueInputOption=RAW" \
-  -H "Authorization: Bearer ${SHEETS_TOKEN}" \
-  -H "Content-Type: application/json" \
-  -d '{"values": [["<username>", "", "<follow_up_message>", "pending", "4", "<contact_org_id>", "<tenant>", "<timestamp>", ""]]}'
+  -d '{"values": [["<username>", "<post_url>"]]}'
 ```
 
-**4.3 — Atualizar CRM (só se Sheets sucesso):**
+**Step 2 — Comment:**
+```bash
+# Escrever em Comment (A: username, B: post_url, C: comment_text)
+curl -s -X POST "${SHEETS_BASE}/Comment!A:C:append?valueInputOption=RAW" \
+  -H "Authorization: Bearer ${SHEETS_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{"values": [["<username>", "<post_url>", "<comment_text>"]]}'
+```
+
+**Step 3 — DM + Review_Queue:**
+```bash
+# Escrever em DM_Queue (A: username, B: message)
+curl -s -X POST "${SHEETS_BASE}/DM_Queue!A:B:append?valueInputOption=RAW" \
+  -H "Authorization: Bearer ${SHEETS_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{"values": [["<username>", "<message>"]]}'
+
+# Escrever em Review_Queue (A: username, B: contact_org_id, C: dm_sent_at, D: review_status)
+# review_status fica VAZIO — humano preenche depois
+curl -s -X POST "${SHEETS_BASE}/Review_Queue!A:D:append?valueInputOption=RAW" \
+  -H "Authorization: Bearer ${SHEETS_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{"values": [["<username>", "<contact_org_id>", "<timestamp>", ""]]}'
+```
+
+**Step 4 — DM Follow-up:**
+```bash
+# Escrever em DM_Queue (A: username, B: message)
+curl -s -X POST "${SHEETS_BASE}/DM_Queue!A:B:append?valueInputOption=RAW" \
+  -H "Authorization: Bearer ${SHEETS_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{"values": [["<username>", "<follow_up_message>"]]}'
+```
+
+#### 4.2 — OLIVEIRA-DEV: Enfileirar Email
 
 ```bash
-# Só executar se o append no Sheets retornou sucesso (HTTP 200)
+# Escrever em Email_Queue (mantém estrutura original para M5a)
+curl -s -X POST "${SHEETS_BASE}/Email_Queue!A:G:append?valueInputOption=RAW" \
+  -H "Authorization: Bearer ${SHEETS_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{"values": [["<email>", "<subject>", "<html_body>", "<step>", "<contact_org_id>", "<tenant>", "<timestamp>"]]}'
+```
+
+#### 4.3 — Atualizar CRM (imediatamente)
+
+```bash
+# KOSMOS: status depende do step
+SE step == 3:
+  cadence_status = "awaiting_review"
+SE step == 4:
+  cadence_status = "archived"
+SENÃO:
+  cadence_status = "in_sequence"
+
+# OLIVEIRA-DEV: sempre in_sequence até step 5
+SE step == 5:
+  cadence_status = "archived"
+SENÃO:
+  cadence_status = "in_sequence"
+
 curl -s -X PATCH "${CRM_BASE_URL}/v1/contacts/{contact_org_id}/cadence" \
   -H "Authorization: Bearer ${CRM_API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{
-    "cadence_status": "queued",
-    "cadence_step": <novo_step>
+    "cadence_status": "<status>",
+    "cadence_step": <novo_step>,
+    "last_action_at": "<timestamp>"
   }'
 ```
 
-**IMPORTANTE:** O CRM não suporta custom_fields. A fila de envio é pelo Google Sheets:
-- M5a lê `Email_Queue` (status = "pending") → envia → marca "sent"
-- M5b lê `DM_Queue` (status = "pending") → envia → marca "sent"
+**NOTA:** Não usar mais status `queued`. Fire-and-forget assume que Axiom vai executar.
 
 ### STEP 5: Logar atividade
 

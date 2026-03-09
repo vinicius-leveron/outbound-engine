@@ -95,6 +95,10 @@ POSTS=$(curl -s "https://api.apify.com/v2/actor-runs/${RUN_ID}/dataset/items?tok
   - `commentsCount`
   - `hashtags`
   - `displayUrl` (URL da imagem)
+  - **`url`** (URL do post — ex: `https://instagram.com/p/ABC123`) ← OBRIGATÓRIO para M4
+  - `shortCode` (código curto do post — ex: `ABC123`)
+
+**IMPORTANTE para M4:** O campo `url` é necessário para escrever em `Like_Post` e `Comment`.
 
 #### 2c) Download das imagens
 
@@ -290,9 +294,9 @@ CURRENT_SOURCE_DETAIL=$(curl -s -X GET "${CRM_BASE_URL}/v1/contacts/${CONTACT_ID
 # Preparar dados novos para merge
 NEW_DATA='{
   "recent_posts": [
-    {"caption": "...", "type": "carousel", "likes": 150, "comments": 12, "hashtags": ["#tag1"]},
-    {"caption": "...", "type": "reel", "likes": 320, "comments": 25, "hashtags": ["#tag2"]},
-    {"caption": "...", "type": "static", "likes": 85, "comments": 5, "hashtags": []}
+    {"caption": "...", "type": "carousel", "likes": 150, "comments": 12, "hashtags": ["#tag1"], "url": "https://instagram.com/p/ABC123", "shortCode": "ABC123"},
+    {"caption": "...", "type": "reel", "likes": 320, "comments": 25, "hashtags": ["#tag2"], "url": "https://instagram.com/p/DEF456", "shortCode": "DEF456"},
+    {"caption": "...", "type": "static", "likes": 85, "comments": 5, "hashtags": [], "url": "https://instagram.com/p/GHI789", "shortCode": "GHI789"}
   ],
   "claude_analysis": {
     "visual_quality": "intermediate",
@@ -420,14 +424,18 @@ Salve em `/tmp/t15_report_{YYYY-MM-DD}.log`
       "type": "carousel",
       "likes": 150,
       "comments": 12,
-      "hashtags": ["#produtividade", "#coaching"]
+      "hashtags": ["#produtividade", "#coaching"],
+      "url": "https://instagram.com/p/ABC123",
+      "shortCode": "ABC123"
     },
     {
       "caption": "Voce esta cometendo esse erro?",
       "type": "reel",
       "likes": 320,
       "comments": 25,
-      "hashtags": ["#mentoria"]
+      "hashtags": ["#mentoria"],
+      "url": "https://instagram.com/p/DEF456",
+      "shortCode": "DEF456"
     },
     {
       "caption": "Resultado da minha aluna Maria...",
